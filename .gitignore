@@ -6,7 +6,3 @@ __pycache__/
 *.pptx
 *.docx
 *.doc
-*.html
-_extracted.txt
-_*.txt
-_*.py
