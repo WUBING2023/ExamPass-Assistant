@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>__TITLE__ - 知识图谱</title>
+<style>
+__CSS__
+</style>
+</head>
+<body>
+
+<header id="graph-header">
+  <div class="header-left">
+    <span class="header-brand">ExamPass Assistant</span>
+    <span class="header-sep">|</span>
+    <span class="header-title" id="header-title">__TITLE__ - 知识图谱</span>
+  </div>
+  <div class="header-right">
+    <input type="text" id="search-input" placeholder="搜索知识点..." />
+    <button id="reset-btn" title="重置视图">↺</button>
+  </div>
+</header>
+
+<div id="graph-viewport">
+  <div id="graph-canvas"></div>
+  <svg id="connections-layer"></svg>
+</div>
+
+<div id="zoom-bar">
+  <button id="zoom-out">−</button>
+  <input type="range" id="zoom-slider" min="50" max="200" value="100" step="10" />
+  <button id="zoom-in">+</button>
+  <span id="zoom-label">100%</span>
+</div>
+
+<div id="tooltip" class="tooltip-hidden"></div>
+
+<div id="toast"></div>
+
+<script>
+__TREE_DATA__
+</script>
+<script>
+__JS__
+</script>
+</body>
+</html>
