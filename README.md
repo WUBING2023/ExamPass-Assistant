@@ -1,4 +1,4 @@
-# ExamPass Assistant <sup>v0.2</sup>
+# ExamPass Assistant <sup>v1.0</sup>
 
 **Turn lecture slides into exam-ready study materials.**
 

@@ -1,4 +1,4 @@
-# ExamPass Assistant <sup>v0.2</sup>
+# ExamPass Assistant <sup>v1.0</sup>
 
 **把课堂讲义变成考试利器。** 一键将 PPT、Word、PDF 课件转化为结构化知识清单、交互式测试题、知识图谱和仿真期末试卷。
 
