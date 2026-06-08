@@ -117,3 +117,109 @@ def validate_tree_json(data: dict):
                 walk(node["children"])
 
     walk(data["nodes"])
+
+
+_TYPE_CN = {"fact": "事实", "concept": "概念", "procedure": "过程", "principle": "原理"}
+_IMPORTANCE_CN = {"must": "必考", "key": "重点", "freq": "高频", "info": "了解"}
+_TYPE_GROUP_LABEL = {
+    "concept": "📐 核心概念",
+    "principle": "🔬 原理与推导",
+    "procedure": "⚙ 算法与过程",
+    "fact": "📋 关键事实",
+}
+
+
+def _next_id(counter):
+    """Generate a sequential node id: n1, n2, ..."""
+    nid = f"n{counter[0]}"
+    counter[0] += 1
+    return nid
+
+
+def _kc_summary(kc, label_by_id):
+    """Build a tooltip summary string for a knowledge component."""
+    parts = []
+    t = _TYPE_CN.get(kc.get("type"), kc.get("type"))
+    if t:
+        parts.append(t)
+    imp = _IMPORTANCE_CN.get(kc.get("importance"))
+    if imp:
+        parts.append(imp)
+    deps = kc.get("deps") or []
+    if deps:
+        parts.append("前置：" + "、".join(label_by_id.get(d, d) for d in deps))
+    if kc.get("is_hub"):
+        parts.append("枢纽概念")
+    return " · ".join(parts)
+
+
+def skeleton_to_graph_tree(skeleton: dict) -> dict:
+    """Convert a knowledge skeleton into a *deep* graph tree JSON.
+
+    Produces a 3–4 level tree: chapter → type-group → KC (leaf). When a chapter
+    has too few KCs or only one type, type-group nodes are skipped (2-level fallback).
+    No dependency dashed lines — color alone distinguishes branches.
+    """
+    if not isinstance(skeleton, dict):
+        raise ValueError("骨架必须是 JSON 对象")
+    chapters = skeleton.get("chapters")
+    if not isinstance(chapters, list):
+        raise ValueError("骨架缺少 'chapters' 数组")
+
+    label_by_id = {}
+    for ch in chapters:
+        for kc in ch.get("kcs", []) or []:
+            label_by_id[kc.get("id")] = kc.get("label", kc.get("id"))
+
+    counter = [1]
+    nodes = []
+    for ch in chapters:
+        kcs = ch.get("kcs", []) or []
+        groups = {}
+        for kc in kcs:
+            t = kc.get("type", "concept")
+            groups.setdefault(t, []).append(kc)
+
+        # Decide whether to insert type-group level:
+        # use groups when ≥2 distinct types *and* ≥2 KCs per group on average.
+        use_groups = len(groups) >= 2 and len(kcs) >= 4
+
+        if use_groups:
+            children = []
+            for typ, group_kcs in groups.items():
+                group_node = {
+                    "id": _next_id(counter),
+                    "label": _TYPE_GROUP_LABEL.get(typ, typ),
+                    "summary": f"{len(group_kcs)} 个知识组件",
+                    "children": [],
+                }
+                for kc in group_kcs:
+                    group_node["children"].append({
+                        "id": _next_id(counter),
+                        "label": kc.get("label", kc.get("id")),
+                        "summary": _kc_summary(kc, label_by_id),
+                        "is_hub": bool(kc.get("is_hub", False)),
+                        "children": [],
+                    })
+                children.append(group_node)
+        else:
+            children = []
+            for kc in kcs:
+                children.append({
+                    "id": _next_id(counter),
+                    "label": kc.get("label", kc.get("id")),
+                    "summary": _kc_summary(kc, label_by_id),
+                    "is_hub": bool(kc.get("is_hub", False)),
+                    "children": [],
+                })
+
+        nodes.append({
+            "id": _next_id(counter),
+            "label": ch.get("label", ch["id"]),
+            "summary": ch.get("summary", ""),
+            "children": children,
+        })
+
+    tree = {"title": skeleton.get("title", "课程"), "nodes": nodes}
+    validate_tree_json(tree)
+    return tree

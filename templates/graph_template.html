@@ -25,8 +25,22 @@ __CSS__
 </header>
 
 <div id="graph-viewport">
-  <div id="graph-canvas"></div>
-  <svg id="connections-layer"></svg>
+  <div id="tree-panel">
+    <div id="graph-canvas"></div>
+    <svg id="connections-layer"></svg>
+  </div>
+  <div id="notes-panel">
+    <div id="np-placeholder">← 点击左侧叶节点<br/>查看或编辑笔记</div>
+    <div id="np-content">
+      <div id="np-title"></div>
+      <div class="np-toolbar">
+        <button id="np-bold" title="加粗 (Ctrl+B)"><b>B</b></button>
+        <span class="np-hint">Ctrl+V 粘贴图片</span>
+      </div>
+      <div id="np-body" contenteditable="true" data-ph="在此记笔记…支持 Ctrl+B 加粗、Ctrl+V 粘贴图片"></div>
+      <div id="np-images"></div>
+    </div>
+  </div>
 </div>
 
 <div id="zoom-bar">
@@ -37,7 +51,6 @@ __CSS__
 </div>
 
 <div id="tooltip" class="tooltip-hidden"></div>
-
 <div id="toast"></div>
 
 <script>

@@ -1,26 +1,25 @@
 // === ExamPass Knowledge Graph Engine ===
 
-const BRANCH_COLORS = [
-  '#d4c5b9', '#c5d5cb', '#d5cec0', '#c8d0d8',
-  '#d0c8c0', '#ccd4c8'
+// Keep in sync with CSS --bp-* variables.
+var BRANCH_COLORS = [
+  '#6b8ba4', '#7d9b7d', '#b88b64', '#8e6b7e',
+  '#5f919b', '#9b8a6e', '#7b7599', '#7b967b'
 ];
 
-const STORAGE_KEY = 'graph_settings';
+var STORAGE_KEY = 'graph_settings';
+var NODE_W = 156;
+var COL_W = 230;     // column step (node + gap); no inline note cards needed
+var ROW_GAP = 14;
+var OFFSET_X = 28;
+var OFFSET_Y = 28;
 
-// Layout constants
-var NODE_W = 160;     // fixed node width (matches .gn width in CSS)
-var NOTE_W = 270;     // fixed note card width (matches .gnote width in CSS)
-var COL_W = 460;      // horizontal step per depth level (leaves room for note cards)
-var ROW_GAP = 16;     // vertical gap between sibling units
-var OFFSET_X = 30;    // canvas left padding
-var OFFSET_Y = 30;    // canvas top padding
-
-// ─── Tree model ───────────────────────────────────────────
+// ─── Tree model ────────────────────────────────────────────
 
 function walkTree(nodes, branch, depth, callback) {
-  for (const node of nodes) {
-    const isLeaf = !node.children || node.children.length === 0;
-    callback(node, branch, depth, isLeaf);
+  for (var i = 0; i < nodes.length; i++) {
+    var node = nodes[i];
+    var leaf = !node.children || node.children.length === 0;
+    callback(node, branch, depth, leaf);
     if (node.children && node.children.length > 0) {
       walkTree(node.children, branch, depth + 1, callback);
     }
@@ -28,19 +27,17 @@ function walkTree(nodes, branch, depth, callback) {
 }
 
 function assignBranchColors(nodes) {
-  nodes.forEach(function(node, i) {
-    walkTree([node], i % BRANCH_COLORS.length, 0, function(n, branch) {
+  for (var i = 0; i < nodes.length; i++) {
+    walkTree([nodes[i]], i % BRANCH_COLORS.length, 0, function(n, branch) {
       n._branch = branch;
     });
-  });
+  }
 }
 
 function isLeafNode(node) {
   return !node.children || node.children.length === 0;
 }
 
-// Walk only the *visible* tree (collapsed nodes hide their children),
-// assigning depth and invoking the callback in document order.
 function walkVisible(nodes, cb, depth) {
   depth = depth || 0;
   for (var i = 0; i < nodes.length; i++) {
@@ -53,26 +50,20 @@ function walkVisible(nodes, cb, depth) {
   }
 }
 
-// ─── localStorage helpers ─────────────────────────────────
+// ─── localStorage ──────────────────────────────────────────
 
 function loadNotes(nodeId) {
-  try {
-    return localStorage.getItem('graph_' + nodeId + '_notes') || '';
-  } catch(e) { return ''; }
+  try { return localStorage.getItem('graph_' + nodeId + '_notes') || ''; }
+  catch(e) { return ''; }
 }
 
 function saveNotes(nodeId, html) {
   try {
-    if (html) {
-      localStorage.setItem('graph_' + nodeId + '_notes', html);
-    } else {
-      localStorage.removeItem('graph_' + nodeId + '_notes');
-    }
+    if (html) localStorage.setItem('graph_' + nodeId + '_notes', html);
+    else localStorage.removeItem('graph_' + nodeId + '_notes');
     localStorage.setItem('graph_' + nodeId + '_updated', new Date().toISOString());
   } catch(e) {
-    if (e.name === 'QuotaExceededError') {
-      showToast('存储空间不足，请清理旧笔记或图片');
-    }
+    if (e.name === 'QuotaExceededError') showToast('存储空间不足，请清理旧笔记');
   }
 }
 
@@ -85,47 +76,128 @@ function loadImages(nodeId) {
 
 function saveImages(nodeId, images) {
   try {
-    if (images.length > 0) {
-      localStorage.setItem('graph_' + nodeId + '_images', JSON.stringify(images));
-    } else {
-      localStorage.removeItem('graph_' + nodeId + '_images');
-    }
+    if (images.length > 0) localStorage.setItem('graph_' + nodeId + '_images', JSON.stringify(images));
+    else localStorage.removeItem('graph_' + nodeId + '_images');
   } catch(e) {
-    if (e.name === 'QuotaExceededError') {
-      showToast('图片过大，存储空间不足。请删除部分旧图片');
-    }
+    if (e.name === 'QuotaExceededError') showToast('图片过大，请清理部分旧图片');
   }
 }
 
 function loadSettings() {
-  try {
-    var raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch(e) { return {}; }
+  try { var raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : {}; }
+  catch(e) { return {}; }
 }
 
-function saveSettings(settings) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-  } catch(e) {}
+function saveSettings(s) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch(e) {}
 }
 
-// ─── Rendering ────────────────────────────────────────────
+// ─── State ─────────────────────────────────────────────────
 
 var treeData = null;
 var settings = loadSettings();
+var selectedNodeId = null;
 
-// DOM element references — checked after DOMContentLoaded
-var graphCanvas, zoomSlider, zoomLabel, headerTitle, connectionsLayer, tooltip, toast;
+// DOM refs
+var graphCanvas, treePanel, notesPanel, npPlaceholder, npContent, npTitle;
+var npBody, npImages, connectionsLayer, tooltip, toast;
+var zoomSlider, zoomLabel, headerTitle;
+
 function cacheDomRefs() {
   graphCanvas = document.getElementById('graph-canvas');
-  zoomSlider = document.getElementById('zoom-slider');
-  zoomLabel = document.getElementById('zoom-label');
-  headerTitle = document.getElementById('header-title');
+  treePanel = document.getElementById('tree-panel');
+  notesPanel = document.getElementById('notes-panel');
+  npPlaceholder = document.getElementById('np-placeholder');
+  npContent = document.getElementById('np-content');
+  npTitle = document.getElementById('np-title');
+  npBody = document.getElementById('np-body');
+  npImages = document.getElementById('np-images');
   connectionsLayer = document.getElementById('connections-layer');
   tooltip = document.getElementById('tooltip');
   toast = document.getElementById('toast');
+  zoomSlider = document.getElementById('zoom-slider');
+  zoomLabel = document.getElementById('zoom-label');
+  headerTitle = document.getElementById('header-title');
 }
+
+// ─── Notes panel (right) ───────────────────────────────────
+
+function selectNode(node) {
+  // save previous
+  saveCurrentNotes();
+
+  // clear old selection highlight
+  var prev = document.querySelector('.gn.selected');
+  if (prev) prev.classList.remove('selected');
+
+  selectedNodeId = node.id;
+  node._el.classList.add('selected');
+
+  // populate panel
+  npPlaceholder.style.display = 'none';
+  npContent.style.display = 'flex';
+  npTitle.textContent = node.label;
+  npBody.innerHTML = loadNotes(node.id);
+  renderNotesImages(node.id);
+
+  // scroll node into view
+  node._el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function saveCurrentNotes() {
+  if (!selectedNodeId) return;
+  var html = npBody.innerHTML;
+  saveNotes(selectedNodeId, html);
+  // refresh the node's has-notes marker
+  var el = document.querySelector('.gn[data-id="' + selectedNodeId + '"]');
+  if (el) {
+    if (html || loadImages(selectedNodeId).length > 0) el.classList.add('has-notes');
+    else el.classList.remove('has-notes');
+  }
+}
+
+function renderNotesImages(nodeId) {
+  npImages.innerHTML = '';
+  var images = loadImages(nodeId);
+  for (var i = 0; i < images.length; i++) {
+    npImages.appendChild(createImageElement(images[i], nodeId));
+  }
+}
+
+function createImageElement(src, nodeId) {
+  var wrap = document.createElement('div');
+  wrap.className = 'ge-img-wrap';
+  var img = document.createElement('img');
+  img.src = src; img.alt = '笔记图片';
+  wrap.appendChild(img);
+  var del = document.createElement('button');
+  del.className = 'ge-img-del'; del.textContent = '✕';
+  del.addEventListener('click', function(e) {
+    e.stopPropagation();
+    var images = loadImages(nodeId);
+    var idx = images.indexOf(src);
+    if (idx !== -1) { images.splice(idx, 1); saveImages(nodeId, images); }
+    wrap.remove();
+    if (!npBody.innerHTML && images.length === 0) {
+      var el = document.querySelector('.gn[data-id="' + nodeId + '"]');
+      if (el) el.classList.remove('has-notes');
+    }
+  });
+  wrap.appendChild(del);
+  return wrap;
+}
+
+// ─── Toolbar ───────────────────────────────────────────────
+
+function initToolbar() {
+  document.getElementById('np-bold').addEventListener('click', function() {
+    document.execCommand('bold');
+    npBody.focus();
+    this.classList.toggle('active');
+  });
+}
+
+// ─── Rendering ─────────────────────────────────────────────
 
 function render(tree) {
   treeData = tree;
@@ -142,7 +214,6 @@ function render(tree) {
   graphCanvas.innerHTML = '';
   graphCanvas.style.transformOrigin = 'top left';
 
-  // Build DOM for every visible node (and a persistent note card for each leaf).
   walkVisible(tree.nodes, function(node) {
     var el = renderNode(node);
     el.style.position = 'absolute';
@@ -151,20 +222,8 @@ function render(tree) {
     el.style.top = '0';
     graphCanvas.appendChild(el);
     node._el = el;
-    node._noteEl = null;
-
-    if (isLeafNode(node)) {
-      var note = renderNotePanel(node);
-      note.style.position = 'absolute';
-      note.style.visibility = 'hidden';
-      note.style.left = '0';
-      note.style.top = '0';
-      graphCanvas.appendChild(note);
-      node._noteEl = note;
-    }
   });
 
-  // Keep the SVG layer inside the canvas so it scales together under zoom.
   graphCanvas.appendChild(connectionsLayer);
 
   measureNodes();
@@ -172,14 +231,24 @@ function render(tree) {
   applyPositions();
   drawConnections();
 
-  // Restore zoom
   var zoom = settings.zoom || 1;
   graphCanvas.style.transform = 'scale(' + zoom + ')';
   zoomSlider.value = Math.round(zoom * 100);
   zoomLabel.textContent = Math.round(zoom * 100) + '%';
 
-  // Update header
-  headerTitle.textContent = (tree.title || '课程') + ' - 知识图谱';
+  headerTitle.textContent = (tree.title || '课程') + ' — 知识图谱';
+
+  // Restore selection
+  if (selectedNodeId) {
+    var el = document.querySelector('.gn[data-id="' + selectedNodeId + '"]');
+    if (el) el.classList.add('selected');
+  }
+
+  // Reselect if notes exist for current node
+  if (selectedNodeId && npBody) {
+    npBody.innerHTML = loadNotes(selectedNodeId);
+    renderNotesImages(selectedNodeId);
+  }
 }
 
 function renderNode(node) {
@@ -194,30 +263,21 @@ function renderNode(node) {
   label.textContent = node.label;
   el.appendChild(label);
 
-  // Mark nodes that carry notes/images so they read as "filled in".
   if (loadNotes(node.id) || loadImages(node.id).length > 0) {
     el.classList.add('has-notes');
   }
+  if (node._collapsed) el.classList.add('collapsed');
 
-  if (node._collapsed) {
-    el.classList.add('collapsed');
-  }
-
-  // Tooltip from source summary
   if (node.summary) {
     el.addEventListener('mouseenter', function(e) { showTooltip(e, node.summary); });
     el.addEventListener('mouseleave', hideTooltip);
     el.addEventListener('mousemove', moveTooltip);
   }
 
-  // Click: leaves focus their note card; branches collapse/expand.
   el.addEventListener('click', function(e) {
     e.stopPropagation();
     if (isLeafNode(node)) {
-      if (node._noteEl) {
-        var body = node._noteEl.querySelector('.gnote-body');
-        if (body) body.focus();
-      }
+      selectNode(node);
     } else {
       toggleCollapse(node);
     }
@@ -231,156 +291,30 @@ function renderNode(node) {
   return el;
 }
 
-// ─── Persistent note card ─────────────────────────────────
-
-function renderNotePanel(node) {
-  var el = document.createElement('div');
-  el.className = 'gnote';
-  el.dataset.forNode = node.id;
-  el.dataset.branch = node._branch;
-
-  var body = document.createElement('div');
-  body.className = 'gnote-body';
-  body.contentEditable = 'true';
-  body.dataset.ph = '＋ 记笔记…';
-  body.innerHTML = loadNotes(node.id);
-  body.addEventListener('blur', function() {
-    saveNotes(node.id, body.innerHTML);
-    updateNodeMark(node);
-    relayout();
-  });
-  body.addEventListener('paste', function(e) { handlePaste(e, node); });
-  el.appendChild(body);
-
-  var images = loadImages(node.id);
-  var imagesDiv = document.createElement('div');
-  imagesDiv.className = 'gnote-imgs';
-  for (var i = 0; i < images.length; i++) {
-    imagesDiv.appendChild(createImageElement(images[i], node));
-  }
-  el.appendChild(imagesDiv);
-
-  return el;
-}
-
-function updateNodeMark(node) {
-  if (!node._el) return;
-  var hasContent = loadNotes(node.id) || loadImages(node.id).length > 0;
-  if (hasContent) {
-    node._el.classList.add('has-notes');
-  } else {
-    node._el.classList.remove('has-notes');
-  }
-}
-
-function createImageElement(src, node) {
-  var wrap = document.createElement('div');
-  wrap.className = 'ge-img-wrap';
-
-  var img = document.createElement('img');
-  img.src = src;
-  img.alt = '粘贴的图片';
-  wrap.appendChild(img);
-
-  var del = document.createElement('button');
-  del.className = 'ge-img-del';
-  del.textContent = '✕';
-  del.addEventListener('click', function(e) {
-    e.stopPropagation();
-    var images = loadImages(node.id);
-    var idx = images.indexOf(src);
-    if (idx !== -1) {
-      images.splice(idx, 1);
-      saveImages(node.id, images);
-    }
-    wrap.remove();
-    updateNodeMark(node);
-    relayout();
-  });
-  wrap.appendChild(del);
-
-  return wrap;
-}
-
-function handlePaste(e, node) {
-  var items = e.clipboardData && e.clipboardData.items;
-  if (!items) return;
-
-  for (var i = 0; i < items.length; i++) {
-    if (items[i].type.indexOf('image') !== -1) {
-      e.preventDefault();
-      var blob = items[i].getAsFile();
-      compressImage(blob, function(dataUrl) {
-        var images = loadImages(node.id);
-        images.push(dataUrl);
-        saveImages(node.id, images);
-        var panel = node._noteEl;
-        if (!panel) return;
-        var imagesDiv = panel.querySelector('.gnote-imgs');
-        if (imagesDiv) {
-          imagesDiv.appendChild(createImageElement(dataUrl, node));
-        }
-        updateNodeMark(node);
-        relayout();
-      });
-      return;
-    }
-  }
-}
-
-function compressImage(blob, callback) {
-  var img = new Image();
-  var url = URL.createObjectURL(blob);
-  img.onload = function() {
-    URL.revokeObjectURL(url);
-    var canvas = document.createElement('canvas');
-    var maxW = 800;
-    var w = img.width, h = img.height;
-    if (w > maxW) { h = h * (maxW / w); w = maxW; }
-    canvas.width = w; canvas.height = h;
-    var ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0, w, h);
-    callback(canvas.toDataURL('image/jpeg', 0.7));
-  };
-  img.onerror = function() {
-    URL.revokeObjectURL(url);
-    showToast('图片加载失败，请重试');
-  };
-  img.src = url;
-}
-
-// ─── Layout (tidy tree) ───────────────────────────────────
+// ─── Layout (tidy tree, absolute positioning) ──────────────
 
 function measureNodes() {
   walkVisible(treeData.nodes, function(node) {
     if (node._el) node._h = node._el.offsetHeight;
-    if (node._noteEl) node._noteH = node._noteEl.offsetHeight;
   });
 }
 
-// Assign _x / _top / _y to every visible node. A node's vertical center is
-// the midpoint of its children; leaves stack by their own (or note) height.
 function layoutTree(nodes) {
   var cursorY = OFFSET_Y;
-
   function place(node) {
     node._x = OFFSET_X + node._depth * COL_W;
     var kids = (!node._collapsed && node.children && node.children.length > 0) ? node.children : [];
-    var nodeH = node._h || 36;
-
+    var nodeH = node._h || 34;
     if (kids.length === 0) {
-      var unitH = nodeH;
-      if (node._noteH) unitH = Math.max(nodeH, node._noteH);
       node._top = cursorY;
       node._y = cursorY + nodeH / 2;
-      cursorY += unitH + ROW_GAP;
+      cursorY += nodeH + ROW_GAP;
     } else {
       for (var i = 0; i < kids.length; i++) place(kids[i]);
       node._y = (kids[0]._y + kids[kids.length - 1]._y) / 2;
       node._top = node._y - nodeH / 2;
     }
   }
-
   for (var i = 0; i < nodes.length; i++) place(nodes[i]);
   return cursorY;
 }
@@ -391,101 +325,25 @@ function applyPositions() {
     node._el.style.left = node._x + 'px';
     node._el.style.top = node._top + 'px';
     node._el.style.visibility = 'visible';
-
-    var rightX = node._x + NODE_W;
-    var bottomY = node._top + (node._h || 36);
-
-    if (node._noteEl) {
-      var noteX = node._x + NODE_W + 16;
-      node._noteEl.style.left = noteX + 'px';
-      node._noteEl.style.top = node._top + 'px';
-      node._noteEl.style.visibility = 'visible';
-      rightX = noteX + NOTE_W;
-      bottomY = Math.max(bottomY, node._top + (node._noteH || 0));
-    }
-
-    if (rightX > maxX) maxX = rightX;
-    if (bottomY > maxY) maxY = bottomY;
+    var r = node._x + NODE_W;
+    var b = node._top + (node._h || 34);
+    if (r > maxX) maxX = r;
+    if (b > maxY) maxY = b;
   });
-
   graphCanvas.style.width = (maxX + 40) + 'px';
   graphCanvas.style.height = (maxY + 60) + 'px';
 }
 
-// Re-measure and re-position without rebuilding DOM (used after note edits).
 function relayout() {
   if (!treeData) return;
+  saveCurrentNotes();
   measureNodes();
   layoutTree(treeData.nodes);
   applyPositions();
   drawConnections();
 }
 
-// ─── Collapse / Expand ────────────────────────────────────
-
-function applyCollapsed(nodes, collapsedIds) {
-  for (var i = 0; i < nodes.length; i++) {
-    var node = nodes[i];
-    if (collapsedIds.indexOf(node.id) !== -1) {
-      node._collapsed = true;
-    } else {
-      node._collapsed = false;
-    }
-    if (node.children && node.children.length > 0) {
-      applyCollapsed(node.children, collapsedIds);
-    }
-  }
-}
-
-function toggleCollapse(node) {
-  node._collapsed = !node._collapsed;
-  var collapsed = settings.collapsed || [];
-  if (node._collapsed) {
-    if (collapsed.indexOf(node.id) === -1) collapsed.push(node.id);
-  } else {
-    var idx = collapsed.indexOf(node.id);
-    if (idx !== -1) collapsed.splice(idx, 1);
-  }
-  settings.collapsed = collapsed;
-  saveSettings(settings);
-  render(treeData);
-}
-
-// ─── Rename ────────────────────────────────────────────────
-
-function renameNode(node, labelEl) {
-  var oldLabel = node.label;
-  var input = document.createElement('input');
-  input.type = 'text';
-  input.value = oldLabel;
-  input.style.cssText = 'font-weight:600;font-size:0.95em;width:100%;border:1px solid #ccc;border-radius:4px;padding:2px 6px;box-sizing:border-box;';
-  input.addEventListener('click', function(e) { e.stopPropagation(); });
-  input.addEventListener('blur', function() { finishRename(node, input.value.trim() || oldLabel); });
-  input.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
-    if (e.key === 'Escape') { input.value = oldLabel; input.blur(); }
-  });
-  labelEl.replaceWith(input);
-  input.focus();
-  input.select();
-}
-
-function finishRename(node, newLabel) {
-  node.label = newLabel;
-  settings.renamed = settings.renamed || {};
-  settings.renamed[node.id] = newLabel;
-  saveSettings(settings);
-  render(treeData);
-}
-
-function applyRenamesData(nodes) {
-  var renamed = settings.renamed || {};
-  walkTree(nodes, 0, 0, function(n) {
-    if (renamed[n.id] != null) n.label = renamed[n.id];
-  });
-}
-
-// ─── Connections (SVG) ────────────────────────────────────
+// ─── Connections (SVG bezier, parent→child only; no dependency lines) ──
 
 function collectEdges(nodes, acc) {
   for (var i = 0; i < nodes.length; i++) {
@@ -502,7 +360,6 @@ function collectEdges(nodes, acc) {
 function drawConnections() {
   var w = parseFloat(graphCanvas.style.width) || graphCanvas.scrollWidth;
   var h = parseFloat(graphCanvas.style.height) || graphCanvas.scrollHeight;
-
   connectionsLayer.style.width = w + 'px';
   connectionsLayer.style.height = h + 'px';
   connectionsLayer.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
@@ -521,8 +378,67 @@ function drawConnections() {
       '" stroke="' + BRANCH_COLORS[p._branch] + '"' +
       ' d="M' + x1 + ',' + y1 + ' C' + cx1 + ',' + y1 + ' ' + cx2 + ',' + y2 + ' ' + x2 + ',' + y2 + '" />';
   }
-
   connectionsLayer.innerHTML = html;
+}
+
+// ─── Collapse / Expand ─────────────────────────────────────
+
+function applyCollapsed(nodes, collapsedIds) {
+  for (var i = 0; i < nodes.length; i++) {
+    var node = nodes[i];
+    node._collapsed = collapsedIds.indexOf(node.id) !== -1;
+    if (node.children && node.children.length > 0) {
+      applyCollapsed(node.children, collapsedIds);
+    }
+  }
+}
+
+function toggleCollapse(node) {
+  node._collapsed = !node._collapsed;
+  var collapsed = settings.collapsed || [];
+  if (node._collapsed) {
+    if (collapsed.indexOf(node.id) === -1) collapsed.push(node.id);
+  } else {
+    var idx = collapsed.indexOf(node.id);
+    if (idx !== -1) collapsed.splice(idx, 1);
+  }
+  settings.collapsed = collapsed;
+  saveSettings(settings);
+  saveCurrentNotes();
+  render(treeData);
+}
+
+// ─── Rename ────────────────────────────────────────────────
+
+function renameNode(node, labelEl) {
+  var oldLabel = node.label;
+  var input = document.createElement('input');
+  input.type = 'text'; input.value = oldLabel;
+  input.style.cssText = 'font-weight:600;font-size:0.9em;width:100%;border:1px solid #ccc;border-radius:4px;padding:2px 6px;box-sizing:border-box;';
+  input.addEventListener('click', function(e) { e.stopPropagation(); });
+  input.addEventListener('blur', function() { finishRename(node, input.value.trim() || oldLabel); });
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { input.value = oldLabel; input.blur(); }
+  });
+  labelEl.replaceWith(input);
+  input.focus(); input.select();
+}
+
+function finishRename(node, newLabel) {
+  node.label = newLabel;
+  settings.renamed = settings.renamed || {};
+  settings.renamed[node.id] = newLabel;
+  saveSettings(settings);
+  saveCurrentNotes();
+  render(treeData);
+}
+
+function applyRenamesData(nodes) {
+  var renamed = settings.renamed || {};
+  walkTree(nodes, 0, 0, function(n) {
+    if (renamed[n.id] != null) n.label = renamed[n.id];
+  });
 }
 
 // ─── Tooltip ───────────────────────────────────────────────
@@ -534,17 +450,14 @@ function showTooltip(e, text) {
 }
 
 function moveTooltip(e) {
-  var x = e.clientX + 14;
-  var y = e.clientY + 14;
+  var x = e.clientX + 14, y = e.clientY + 14;
   if (x + 300 > window.innerWidth) x = e.clientX - 310;
   if (y + 80 > window.innerHeight) y = e.clientY - 90;
   tooltip.style.left = x + 'px';
   tooltip.style.top = y + 'px';
 }
 
-function hideTooltip() {
-  tooltip.classList.remove('tooltip-show');
-}
+function hideTooltip() { tooltip.classList.remove('tooltip-show'); }
 
 // ─── Toast ─────────────────────────────────────────────────
 
@@ -553,47 +466,65 @@ function showToast(msg) {
   toast.textContent = msg;
   toast.classList.add('toast-show');
   if (toastTimer) clearTimeout(toastTimer);
-  toastTimer = setTimeout(function() { toast.classList.remove('toast-show'); }, 2000);
+  toastTimer = setTimeout(function() { toast.classList.remove('toast-show'); }, 2200);
 }
 
-// ─── Format helpers ────────────────────────────────────────
+// ─── Image paste ───────────────────────────────────────────
 
-function formatTime(iso) {
-  try {
-    var d = new Date(iso);
-    var pad = function(n) { return n < 10 ? '0' + n : String(n); };
-    return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) +
-      ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
-  } catch(e) { return ''; }
+function handlePaste(e) {
+  var items = e.clipboardData && e.clipboardData.items;
+  if (!items) return;
+  for (var i = 0; i < items.length; i++) {
+    if (items[i].type.indexOf('image') !== -1) {
+      e.preventDefault();
+      var blob = items[i].getAsFile();
+      compressImage(blob, function(dataUrl) {
+        if (!selectedNodeId) return;
+        var images = loadImages(selectedNodeId);
+        images.push(dataUrl);
+        saveImages(selectedNodeId, images);
+        npImages.appendChild(createImageElement(dataUrl, selectedNodeId));
+        var el = document.querySelector('.gn[data-id="' + selectedNodeId + '"]');
+        if (el) el.classList.add('has-notes');
+      });
+      return;
+    }
+  }
+}
+
+function compressImage(blob, callback) {
+  var img = new Image();
+  var url = URL.createObjectURL(blob);
+  img.onload = function() {
+    URL.revokeObjectURL(url);
+    var canvas = document.createElement('canvas');
+    var maxW = 800, w = img.width, h = img.height;
+    if (w > maxW) { h = h * (maxW / w); w = maxW; }
+    canvas.width = w; canvas.height = h;
+    var ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, w, h);
+    callback(canvas.toDataURL('image/jpeg', 0.7));
+  };
+  img.onerror = function() {
+    URL.revokeObjectURL(url);
+    showToast('图片加载失败，请重试');
+  };
+  img.src = url;
 }
 
 // ─── Search ────────────────────────────────────────────────
 
 var searchTimer = null;
-document.addEventListener('DOMContentLoaded', function() {
-  var searchInput = document.getElementById('search-input');
-  if (!searchInput) return;
-  searchInput.addEventListener('input', function() {
-    if (searchTimer) clearTimeout(searchTimer);
-    searchTimer = setTimeout(doSearch, 200);
-  });
-  searchInput.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') { searchInput.value = ''; doSearch(); }
-  });
-});
-
 function doSearch() {
-  var query = document.getElementById('search-input').value.trim().toLowerCase();
+  var query = (document.getElementById('search-input') || {}).value;
+  if (!query) query = '';
+  query = query.trim().toLowerCase();
   var allNodes = document.querySelectorAll('.gn');
   var firstHit = null;
-
-  allNodes.forEach(function(el) {
-    el.classList.remove('search-hit', 'search-dim');
-  });
-
+  for (var i = 0; i < allNodes.length; i++) allNodes[i].classList.remove('search-hit', 'search-dim');
   if (!query) return;
-
-  allNodes.forEach(function(el) {
+  for (var i = 0; i < allNodes.length; i++) {
+    var el = allNodes[i];
     var label = (el.querySelector('.gn-label') || {}).textContent || '';
     if (label.toLowerCase().indexOf(query) !== -1) {
       el.classList.add('search-hit');
@@ -601,26 +532,18 @@ function doSearch() {
     } else {
       el.classList.add('search-dim');
     }
-  });
-
-  if (firstHit) {
-    firstHit.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
+  if (firstHit) firstHit.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 // ─── Zoom ──────────────────────────────────────────────────
 
-document.addEventListener('DOMContentLoaded', function() {
+function initZoom() {
   var slider = zoomSlider;
   var label = zoomLabel;
   var outBtn = document.getElementById('zoom-out');
   var inBtn = document.getElementById('zoom-in');
-  var resetBtn = document.getElementById('reset-btn');
-
-  if (!slider) return;
-
   var zoom = settings.zoom || 1;
-
   function applyZoom(z) {
     zoom = Math.max(0.5, Math.min(2, z));
     if (graphCanvas) graphCanvas.style.transform = 'scale(' + zoom + ')';
@@ -629,26 +552,48 @@ document.addEventListener('DOMContentLoaded', function() {
     settings.zoom = zoom;
     saveSettings(settings);
   }
-
   slider.addEventListener('input', function() { applyZoom(this.value / 100); });
-  outBtn.addEventListener('click', function() { applyZoom(zoom - 0.1); });
-  inBtn.addEventListener('click', function() { applyZoom(zoom + 0.1); });
+  if (outBtn) outBtn.addEventListener('click', function() { applyZoom(zoom - 0.1); });
+  if (inBtn) inBtn.addEventListener('click', function() { applyZoom(zoom + 0.1); });
 
-  resetBtn.addEventListener('click', function() {
+  // Narrow-screen zoom: fit tree on mobile
+  document.getElementById('reset-btn').addEventListener('click', function() {
     settings.collapsed = [];
     settings.renamed = {};
     saveSettings(settings);
     document.getElementById('search-input').value = '';
     doSearch();
     applyZoom(1);
+    saveCurrentNotes();
     render(treeData);
+    npPlaceholder.style.display = 'block';
+    npContent.style.display = 'none';
+    selectedNodeId = null;
   });
-});
+}
 
 // ─── Init ──────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', function() {
   cacheDomRefs();
+  initToolbar();
+  initZoom();
+
+  // Notes auto-save
+  npBody.addEventListener('blur', function() { saveCurrentNotes(); });
+  npBody.addEventListener('paste', handlePaste);
+
+  // Search
+  var si = document.getElementById('search-input');
+  if (si) {
+    si.addEventListener('input', function() {
+      if (searchTimer) clearTimeout(searchTimer);
+      searchTimer = setTimeout(doSearch, 200);
+    });
+    si.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { si.value = ''; doSearch(); }
+    });
+  }
 
   if (typeof TREE_DATA === 'undefined') {
     graphCanvas.innerHTML =
@@ -657,7 +602,6 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   render(TREE_DATA);
 
-  // Redraw connections on resize (positions are fixed, only the SVG box needs a refresh).
   var resizeTimer = null;
   window.addEventListener('resize', function() {
     if (resizeTimer) clearTimeout(resizeTimer);

@@ -3,7 +3,131 @@ import json
 import os
 
 import pytest
-from knowledge_graph import build_graph_prompt, parse_graph_response, validate_tree_json
+from knowledge_graph import (
+    build_graph_prompt,
+    parse_graph_response,
+    validate_tree_json,
+    skeleton_to_graph_tree,
+)
+
+
+SAMPLE_SKELETON = {
+    "title": "深度学习",
+    "chapters": [
+        {
+            "id": "ch1",
+            "label": "第1章 基础",
+            "summary": "本章打底",
+            "kcs": [
+                {"id": "kc1.1", "label": "感知机", "type": "concept",
+                 "importance": "key", "deps": [], "is_hub": True,
+                 "source_refs": ["slide_1"]},
+                {"id": "kc1.2", "label": "反向传播", "type": "procedure",
+                 "importance": "must", "deps": ["kc1.1"], "is_hub": False,
+                 "source_refs": ["slide_3"]},
+            ],
+        },
+        {
+            "id": "ch2",
+            "label": "第2章 进阶",
+            "kcs": [
+                {"id": "kc2.1", "label": "注意力", "type": "principle",
+                 "importance": "must", "deps": ["kc1.2"]},
+            ],
+        },
+    ],
+}
+
+# Richer skeleton that triggers type-group intermediate nodes (≥4 KCs, ≥2 types)
+SAMPLE_SKELETON_DEEP = {
+    "title": "算法设计",
+    "chapters": [
+        {
+            "id": "ch1",
+            "label": "第1章 分治",
+            "summary": "分治策略",
+            "kcs": [
+                {"id": "k1", "label": "分治思想", "type": "concept", "importance": "key", "deps": []},
+                {"id": "k2", "label": "递归树", "type": "concept", "importance": "freq", "deps": ["k1"]},
+                {"id": "k3", "label": "主定理", "type": "principle", "importance": "must", "deps": ["k2"]},
+                {"id": "k4", "label": "归并排序", "type": "procedure", "importance": "key", "deps": ["k2"]},
+                {"id": "k5", "label": "快速排序", "type": "procedure", "importance": "must", "deps": ["k2"]},
+            ],
+        },
+    ],
+}
+
+
+def test_skeleton_to_graph_tree_structure():
+    tree = skeleton_to_graph_tree(SAMPLE_SKELETON)
+    validate_tree_json(tree)
+    assert tree["title"] == "深度学习"
+    assert len(tree["nodes"]) == 2
+    assert tree["nodes"][0]["label"] == "第1章 基础"
+    assert len(tree["nodes"][0]["children"]) == 2  # 2 KCs, flat
+
+
+def test_skeleton_to_graph_tree_folds_metadata_into_summary():
+    tree = skeleton_to_graph_tree(SAMPLE_SKELETON)
+    kc12 = tree["nodes"][0]["children"][1]
+    assert kc12["label"] == "反向传播"
+    assert "过程" in kc12["summary"]
+    assert "必考" in kc12["summary"]
+    # dep label resolved in summary
+    assert "前置" in kc12["summary"]
+    assert "感知机" in kc12["summary"]
+
+
+def test_skeleton_to_graph_tree_carries_hub():
+    tree = skeleton_to_graph_tree(SAMPLE_SKELETON)
+    kc11 = tree["nodes"][0]["children"][0]
+    assert kc11["is_hub"] is True
+    assert "枢纽" in kc11["summary"]
+
+
+def test_skeleton_to_graph_tree_no_deps_field():
+    """Nodes should NOT carry a 'deps' field — no dashed lines in renderer."""
+    tree = skeleton_to_graph_tree(SAMPLE_SKELETON)
+    for node in tree["nodes"]:
+        for child in node["children"]:
+            assert "deps" not in child
+
+
+def test_skeleton_to_graph_tree_ids_are_sequential():
+    tree = skeleton_to_graph_tree(SAMPLE_SKELETON)
+    ids = []
+    def collect(nodes):
+        for n in nodes:
+            ids.append(n["id"])
+            collect(n.get("children", []) or [])
+    collect(tree["nodes"])
+    assert all(id_.startswith("n") for id_ in ids)
+    assert len(ids) == len(set(ids))
+
+
+def test_skeleton_to_graph_tree_deep_with_type_groups():
+    """A chapter with ≥4 KCs + ≥2 types should get type-group intermediate nodes."""
+    tree = skeleton_to_graph_tree(SAMPLE_SKELETON_DEEP)
+    validate_tree_json(tree)
+    assert len(tree["nodes"]) == 1
+    ch1 = tree["nodes"][0]
+    # Should have type-group children (not flat KCs)
+    assert len(ch1["children"]) >= 2
+    group_labels = [c["label"] for c in ch1["children"]]
+    assert any("概念" in l for l in group_labels)
+    assert any("过程" in l for l in group_labels) or any("算法" in l for l in group_labels)
+    # Each type group should have its KCs as children
+    for grp in ch1["children"]:
+        assert len(grp["children"]) >= 1
+        for kc_node in grp["children"]:
+            assert kc_node["children"] == []  # leaf
+
+
+def test_skeleton_to_graph_tree_rejects_bad_input():
+    with pytest.raises(ValueError):
+        skeleton_to_graph_tree({"title": "x"})
+    with pytest.raises(ValueError):
+        skeleton_to_graph_tree("not a dict")
 
 
 def test_build_graph_prompt_contains_text_summary():

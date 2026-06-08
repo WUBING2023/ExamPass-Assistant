@@ -1,30 +1,26 @@
 ---
 name: exampass-final
-description: 读取整个课程目录，生成仿真期末考试试卷 HTML + 答案 HTML。支持配置难度、时长、题型分布。
+description: 基于课程资料生成仿真期末整卷 + 答案（多 Agent + 考试蓝图）。
 ---
 
 # ExamPass Final Exam
 
-## 触发
-用户调用 `/exampass-final`。
+> 期末整卷生成已并入 `SKILL.md` 的「期末整卷生成（final）」章节，通过 `/exampass final <目录>` 调用。
+> 复用多 Agent 内核（骨架 → 考试蓝图 → 题目 Agent → 做题 Agent 两遍验证 → 一轮修订 → 渲染）。
 
-## 交互
-询问用户：考试难度、时长、题型偏好、是否搜索网络参考题。
+## 使用方式
 
-## 执行
-收集全局内容 → 网络调研 → Claude 出题 → 生成试卷 HTML + 答案 HTML。
+```
+/exampass final <课程目录>
+```
 
-## 出题质量要求
+## 出题流程
 
-- 选择题选项要具体、有迷惑性，不能只写单个术语；每个选项应包含条件、原因、结论、步骤或应用场景。
-- 干扰项来自真实错误理解：概念混淆、条件缺失、因果倒置、步骤缺环、适用场景错配等。
-- 正确答案在 A/B/C/D 间随机且尽量均匀分布；不要连续多题使用同一个正确选项，输出前自查答案分布。
+1. 交互询问难度、时长、题型偏好
+2. 复用或现产知识骨架（`knowledge_skeleton.json`）
+3. 默认联网参考其他名校同类期末题（仅取灵感，内容以 PPT 为准；可关闭）
+4. 排考试蓝图（重要度 × 布鲁姆层级 × 题型 × 分值 = 100，覆盖全章、难度有梯度）
+5. 题目 Agent 按蓝图全局命题，做题 Agent 两遍法验证，一轮定向修订
+6. `save_test()` 生成试卷 HTML，`save_knowledge_html()` 生成答案 HTML，Ctrl+P 打印 PDF
 
-## Steps
-
-1. 交互式收集用户配置
-2. 递归读取目录下所有知识清单 HTML
-3. WebSearch 搜索 211/985 类似课程期末考题作为参考
-4. Claude 综合出题，直接输出 HTML body
-5. 调用 `save_test()` 生成交互式试卷 HTML + `save_knowledge_html()` 生成答案 HTML
-6. 浏览器打开 HTML，Ctrl+P 打印为 PDF
+详情见 `SKILL.md` 中的 `## 期末整卷生成（final）` 章节；子 Agent 方法论见 `agents/`。
