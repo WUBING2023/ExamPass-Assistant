@@ -40,7 +40,7 @@ _MATHJAX_SCRIPT = (
 
 def _build_page(title, body_html, css_extra='', js_extra=''):
     """Fill the page template. JS goes AFTER body -- critical for DOM access."""
-    css = _read('base.css') + '\n' + css_extra
+    css = _read('base.css') + '\n' + _read('formula_viz.css') + '\n' + css_extra
     return (
         _PAGE_TEMPLATE
         .replace('__TITLE__', title)

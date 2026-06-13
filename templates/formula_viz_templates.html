@@ -1,0 +1,220 @@
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- FORMULA VIZ · COPY-PASTE TEMPLATES                             -->
+<!-- 子 Agent 可直接复制以下片段，只替换内容和数据，不要发明新 class -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+
+<!-- ─── 图例（所有多线/多区图表共用） ─── -->
+<div class="fv-legend-bar">
+  <div class="fv-leg"><span class="fv-leg-swatch" style="background:#2563eb"></span> 标签A</div>
+  <div class="fv-leg"><span class="fv-leg-swatch" style="background:#dc2626"></span> 标签B</div>
+  <div class="fv-leg"><span class="fv-leg-swatch sw-line" style="background:#16a34a"></span> 虚线含义</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- PATTERN 1 · 公式解剖卡  fv-anatomy                              -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="fv-anatomy">
+  <div class="fv-anatomy-header">
+    <div class="fv-anatomy-label">🧩 公式解剖</div>
+    $$ 公式在这里 $$
+  </div>
+  <div class="fv-anatomy-parts">
+    <div class="fv-anatomy-part fv-c0">
+      <span class="fv-part-symbol">Q</span>
+      <span class="fv-part-name">Query</span>
+      <span class="fv-part-desc">直觉解释+作用</span>
+    </div>
+    <div class="fv-anatomy-part fv-c1">
+      <span class="fv-part-symbol">K</span>
+      <span class="fv-part-name">Key</span>
+      <span class="fv-part-desc">直觉解释+作用</span>
+    </div>
+    <!-- 继续加 fv-c2 / fv-c3 / fv-c4 ... 颜色自动循环 -->
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- PATTERN 2 · 推导链路图  fv-derive-chain                         -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="fv-derive-chain">
+  <div class="fv-dc-step">
+    <div class="fv-dc-box">$\hat{y}$</div>
+    <div class="fv-dc-label">模型输出</div>
+    <div class="fv-dc-reason">softmax 后</div>
+  </div>
+  <div class="fv-dc-arrow">→</div>
+  <div class="fv-dc-step">
+    <div class="fv-dc-box">$\log(\hat{y})$</div>
+    <div class="fv-dc-label">取对数</div>
+    <div class="fv-dc-reason">放大微小概率差异</div>
+  </div>
+  <!-- 继续加 step / arrow -->
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- PATTERN 3 · 视觉类比图  fv-analogy                             -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="fv-analogy">
+  <div class="fv-analogy-vis">
+    <svg width="220" height="160" viewBox="0 0 220 160">
+      <!-- 手写 SVG -->
+    </svg>
+  </div>
+  <div class="fv-analogy-text">
+    <p>公式和文字解释</p>
+    <div class="fv-analogy-caption">🧠 记忆钩子</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- PATTERN 4 · 折叠逐步推导  fv-derive-steps                       -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<details class="fv-derive-steps" open>
+  <summary>📝 推导：标题</summary>
+  <div class="fv-ds-content">
+    <div class="fv-ds-line">
+      <div class="fv-ds-num">1</div>
+      <div class="fv-ds-formula">$公式$</div>
+      <div class="fv-ds-explain">文字解释</div>
+    </div>
+    <div class="fv-ds-line">
+      <div class="fv-ds-num">2</div>
+      <div class="fv-ds-formula">$公式$</div>
+      <div class="fv-ds-explain">文字解释</div>
+    </div>
+  </div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- PATTERN 5 · 参数快查表  fv-params                               -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<table class="fv-params">
+  <tr><th>符号</th><th>含义</th><th>典型值</th><th>作用</th></tr>
+  <tr>
+    <td><span class="fv-param-sym">α</span></td>
+    <td><span class="fv-param-desc">学习率</span></td>
+    <td>0.001</td>
+    <td><span class="fv-param-desc">控制步长</span></td>
+  </tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- PATTERN 6 · 函数图像  fv-plot                                   -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="fv-plot">
+  <!-- 图例（多线时加） -->
+  <div class="fv-legend-bar">
+    <div class="fv-leg"><span class="fv-leg-swatch" style="background:#2563eb"></span> Sigmoid</div>
+    <div class="fv-leg"><span class="fv-leg-swatch" style="background:#dc2626"></span> ReLU</div>
+  </div>
+  <svg width="500" height="280" viewBox="0 0 500 280">
+    <!-- 坐标轴 -->
+    <line x1="60" y1="220" x2="460" y2="220" class="fv-axis"/>
+    <line x1="260" y1="30" x2="260" y2="240" class="fv-axis"/>
+    <!-- 虚线网格 -->
+    <line x1="60" y1="120" x2="460" y2="120" class="fv-grid"/>
+    <!-- 曲线 -->
+    <path d="M70,218 C140,218 180,218 210,170 ..." fill="none" stroke="#2563eb" stroke-width="2"/>
+    <!-- 标注 -->
+    <text x="100" y="250" class="fv-callout">标注文字</text>
+  </svg>
+  <div class="fv-plot-cap">
+    📊 文字分析总结
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- PATTERN 7 · 3D 概念图  fv-3d-concept                            -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="fv-3d-concept">
+  <div class="fv-legend-bar">
+    <div class="fv-leg"><span class="fv-leg-swatch" style="background:#2563eb"></span> 正类</div>
+    <div class="fv-leg"><span class="fv-leg-swatch" style="background:#dc2626"></span> 负类</div>
+    <div class="fv-leg"><span class="fv-leg-swatch sw-line" style="background:#16a34a"></span> 决策面</div>
+  </div>
+  <svg width="500" height="320" viewBox="0 0 500 320">
+    <!-- 3D 坐标框架（透视投影） -->
+    <polygon points="80,270 240,290 460,260 300,240" fill="none" stroke="#cbd5e1" stroke-width="0.8" stroke-dasharray="3 3"/>
+    <line x1="80" y1="270" x2="80" y2="110" stroke="#cbd5e1" stroke-width="0.8"/>
+    <line x1="300" y1="240" x2="300" y2="80" stroke="#cbd5e1" stroke-width="0.8"/>
+
+    <!-- 数据点 -->
+    <circle cx="150" cy="160" r="5" fill="#2563eb"/>  <!-- 正类样本 -->
+    <circle cx="350" cy="180" r="5" fill="#dc2626"/> <!-- 负类样本 -->
+
+    <!-- 标注 -->
+    <text x="100" y="100" class="fv-callout">$x_1$</text>
+    <text x="460" y="270" class="fv-callout">$x_2$</text>
+  </svg>
+  <div class="fv-3d-cap">
+    🧠 图解释文字
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- PATTERN 8 · 多维诊断面板  fv-multiview                           -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="fv-multiview">
+  <div class="fv-mv-title">🔍 面板标题</div>
+  <div class="fv-legend-bar">
+    <div class="fv-leg"><span class="fv-leg-swatch" style="background:#2563eb"></span> 含义A</div>
+    <div class="fv-leg"><span class="fv-leg-swatch" style="background:#dc2626"></span> 含义B</div>
+  </div>
+  <div class="fv-mv-row">
+    <div class="fv-mv-panel">
+      <svg width="280" height="240" viewBox="0 0 280 240"><!-- 左侧图 --></svg>
+      <div class="fv-mv-panel-label">左图说明</div>
+    </div>
+    <div class="fv-mv-panel">
+      <svg width="280" height="240" viewBox="0 0 280 240"><!-- 右侧图 --></svg>
+      <div class="fv-mv-panel-label">右图说明</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- PATTERN 9 · 联合公式解剖  fv-anatomy-plus                       -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="fv-anatomy-plus">
+  <div class="fv-ap-header">
+    <div style="font-size:0.85em;color:#78716c;margin-bottom:4px;">🧩 标题</div>
+    $$ 公式A \quad\longrightarrow\quad 公式B $$
+  </div>
+  <div class="fv-ap-body">
+    <div class="fv-ap-panel">
+      <div class="fv-ap-panel-title">① 公式A的名称</div>
+      <div class="fv-ap-symbol-row">
+        <span class="fv-ap-sym">$x$</span>
+        <span class="fv-ap-desc">符号含义描述</span>
+      </div>
+    </div>
+    <div class="fv-ap-panel">
+      <div class="fv-ap-panel-title">② 公式B的名称</div>
+      <div class="fv-ap-symbol-row">
+        <span class="fv-ap-sym">$y$</span>
+        <span class="fv-ap-desc">符号含义描述</span>
+      </div>
+    </div>
+  </div>
+  <div class="fv-ap-connector">↑ 上游输出 → 下游输入 ↓</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- PATTERN 10 · 多曲线对比图  fv-plot-enhanced                     -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="fv-plot-enhanced">
+  <div class="fv-legend-bar">
+    <div class="fv-leg"><span class="fv-leg-swatch" style="background:#2563eb"></span> 训练损失</div>
+    <div class="fv-leg"><span class="fv-leg-swatch" style="background:#dc2626"></span> 验证损失</div>
+  </div>
+  <svg width="500" height="300" viewBox="0 0 500 300">
+    <!-- 坐标轴 + 双Y轴 -->
+    <line x1="60" y1="240" x2="460" y2="240" class="fv-axis"/>
+    <line x1="60" y1="20" x2="60" y2="240" class="fv-axis"/>
+    <line x1="60" y1="20" x2="460" y2="20" class="fv-axis"/>
+    <!-- 曲线 -->
+    <path d="M60,80 Q200,90 350,60 T460,40" fill="none" stroke="#2563eb" stroke-width="2"/>
+    <path d="M60,100 Q200,105 280,110 T380,150 T460,190" fill="none" stroke="#dc2626" stroke-width="2" stroke-dasharray="6 3"/>
+  </svg>
+  <div class="fv-plot-cap">📊 分析总结</div>
+</div>

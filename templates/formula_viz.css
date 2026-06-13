@@ -1,0 +1,427 @@
+/* === ExamPass 公式可视化样式 v3 ===
+ * 12 patterns · 全部以「具体数值 + 表格步骤 + 颜色编码」替代抽象几何图
+ * 同时兼容 Agent 已经输出的类名（fv-formula-main / fv-symbols 等）
+ */
+
+/* ── Shared palette ── */
+:root {
+  --fv-bg: #faf8f5; --fv-border: #e2ded8;
+  --fv-c0: #2563eb; --fv-c1: #dc2626; --fv-c2: #16a34a; --fv-c3: #9333ea;
+  --fv-c4: #ea580c; --fv-c5: #0891b2; --fv-c6: #be185d; --fv-c7: #65a30d;
+}
+
+/* ================================================================
+ * LEGEND BAR（所有多元素图表共用）
+ * ================================================================ */
+.fv-legend-bar {
+  display: flex; flex-wrap: wrap; gap: 16px; justify-content: center;
+  padding: 10px 14px; margin: 0 0 12px 0; font-size: 0.82em; color: #555;
+}
+.fv-leg { display: flex; align-items: center; gap: 6px; }
+.fv-leg-swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+.fv-leg-swatch.sw-line { height: 3px; border-radius: 2px; width: 24px; }
+
+/* ================================================================
+ * CARD BASE（通用卡片底板）
+ * ================================================================ */
+.fv-card {
+  margin: 18px 0; background: var(--fv-bg); border: 1px solid var(--fv-border);
+  border-radius: 10px; overflow: hidden;
+}
+.fv-card-header {
+  background: #f5f0e6; padding: 14px 20px; text-align: center;
+  border-bottom: 1px solid var(--fv-border);
+}
+.fv-card-label { font-size: 0.85em; color: #78716c; margin-bottom: 6px; }
+.fv-card-header mjx-container { font-size: 1.15em; }
+@media print { .fv-card { break-inside: avoid; background: #fff; } }
+
+/* ================================================================
+ * PATTERN 1 · 公式解剖卡（fv-anatomy）
+ * 兼容 Agent 输出的 fv-formula-main / fv-symbols / fv-c1...fv-c4 等
+ * ================================================================ */
+.fv-anatomy { /* alias */ }
+.fv-anatomy, .fv-card {
+  margin: 18px 0; background: var(--fv-bg); border: 1px solid var(--fv-border);
+  border-radius: 10px; overflow: hidden;
+}
+.fv-anatomy .fv-anatomy-header, .fv-anatomy .fv-formula-main {
+  background: #f5f0e6; padding: 14px 20px; text-align: center;
+  border-bottom: 1px solid var(--fv-border);
+}
+.fv-anatomy .fv-anatomy-header .fv-anatomy-label {
+  font-size: 0.85em; color: #78716c; margin-bottom: 6px;
+}
+.fv-anatomy .fv-anatomy-parts,
+.fv-anatomy .fv-symbols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+}
+.fv-anatomy .fv-anatomy-part,
+.fv-anatomy .fv-symbols > div[class*="fv-c"],
+.fv-anatomy .fv-symbols > [class*="fv-c"] {
+  padding: 14px 12px; text-align: center;
+  border-right: 1px dashed var(--fv-border);
+  border-top: 1px dashed var(--fv-border);
+}
+.fv-anatomy .fv-anatomy-part:last-child,
+.fv-anatomy .fv-symbols > div:last-child { border-right: none; }
+
+.fv-anatomy .fv-anatomy-part .fv-part-symbol,
+.fv-anatomy .fv-sym-name,
+.fv-anatomy .fv-symbols .fv-sym-name {
+  font-family: "Cambria Math", "Times New Roman", serif;
+  font-size: 1.2em; font-weight: 700; display: block; margin-bottom: 4px;
+}
+.fv-anatomy .fv-anatomy-part .fv-part-name,
+.fv-anatomy .fv-sym-intuition {
+  font-size: 0.85em; font-weight: 600; display: block; margin-bottom: 2px;
+}
+.fv-anatomy .fv-anatomy-part .fv-part-desc,
+.fv-anatomy .fv-sym-role {
+  font-size: 0.78em; color: #78716c; line-height: 1.4;
+}
+
+/* 颜色 — 精确匹配 Agent 用过的 fv-c1~fv-c4 */
+.fv-anatomy .fv-c1, .fv-c1 { color: #1e40af; }
+.fv-anatomy .fv-c2, .fv-c2 { color: #065f46; }
+.fv-anatomy .fv-c3, .fv-c3 { color: #92400e; }
+.fv-anatomy .fv-c4, .fv-c4 { color: #991b1b; }
+.fv-c0 { color: #1e40af; }
+.fv-c5 { color: #5b21b6; } .fv-c6 { color: #9f1239; }
+.fv-c7 { color: #155e75; }
+
+@media print {
+  .fv-anatomy { break-inside: avoid; background: #fff; }
+}
+
+/* ================================================================
+ * PATTERN 2 · 推导链路图（fv-derive-chain）
+ * ================================================================ */
+.fv-derive-chain {
+  display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0;
+  margin: 18px 0; background: var(--fv-bg); border: 1px solid var(--fv-border);
+  border-radius: 10px; padding: 18px 12px; overflow-x: auto;
+}
+.fv-derive-chain .fv-dc-step {
+  display: flex; flex-direction: column; align-items: center;
+  min-width: 120px; flex: 0 0 auto; padding: 8px 6px;
+}
+.fv-derive-chain .fv-dc-arrow {
+  display: flex; align-items: center; justify-content: center;
+  flex: 0 0 auto; width: 48px; color: #94a3b8; font-size: 1.5em; padding-top: 8px;
+}
+.fv-derive-chain .fv-dc-box {
+  background: #fff; border: 2px solid #bae6fd; border-radius: 8px;
+  padding: 10px 16px; text-align: center; min-width: 100px;
+}
+.fv-derive-chain .fv-dc-label {
+  font-size: 0.78em; color: #475569; margin-top: 6px; text-align: center;
+  line-height: 1.35; max-width: 130px;
+}
+.fv-derive-chain .fv-dc-reason {
+  font-size: 0.72em; color: #94a3b8; margin-top: 3px; font-style: italic;
+}
+@media print {
+  .fv-derive-chain { break-inside: avoid; background: #fff; }
+}
+
+/* ================================================================
+ * PATTERN 3 · 视觉类比：左图右文（fv-analogy）
+ * ================================================================ */
+.fv-analogy {
+  display: flex; gap: 20px; align-items: center; margin: 18px 0;
+  background: var(--fv-bg); border: 1px solid var(--fv-border); border-radius: 10px;
+  padding: 20px; flex-wrap: wrap;
+}
+.fv-analogy .fv-analogy-vis {
+  flex: 0 0 auto; min-width: 180px;
+  display: flex; align-items: center; justify-content: center;
+}
+.fv-analogy .fv-analogy-vis svg { max-width: 100%; height: auto; }
+.fv-analogy .fv-analogy-text { flex: 1; min-width: 200px; }
+.fv-analogy .fv-analogy-caption {
+  font-size: 0.82em; color: #78716c; margin-top: 8px; line-height: 1.5;
+}
+@media print {
+  .fv-analogy { break-inside: avoid; background: #fff; }
+}
+
+/* ================================================================
+ * PATTERN 4 · 折叠逐步推导（fv-derive-steps）
+ * 兼容 Agent 输出的 fv-step / fv-step-num / fv-step-formula / fv-step-exp 等
+ * ================================================================ */
+details.fv-derive-steps {
+  margin: 18px 0; background: var(--fv-bg); border: 1px solid var(--fv-border);
+  border-radius: 10px; overflow: hidden;
+}
+details.fv-derive-steps summary {
+  padding: 14px 20px; cursor: pointer; font-weight: 600;
+  color: #1e40af; user-select: none; font-size: 0.95em; background: #f5f0e6;
+}
+details.fv-derive-steps summary:hover { background: #efe8d8; }
+
+/* 官方结构：fv-ds-* */
+details.fv-derive-steps .fv-ds-content { padding: 16px 20px; }
+details.fv-derive-steps .fv-ds-line {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 8px 0; border-bottom: 1px dashed var(--fv-border);
+}
+details.fv-derive-steps .fv-ds-line:last-child { border-bottom: none; }
+details.fv-derive-steps .fv-ds-num {
+  flex: 0 0 28px; width: 28px; height: 28px;
+  background: #1e40af; color: #fff; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.78em; font-weight: 700; margin-top: 2px;
+}
+details.fv-derive-steps .fv-ds-formula {
+  flex: 0 0 auto; min-width: 140px; background: #fff;
+  border: 1px solid var(--fv-border); border-radius: 6px; padding: 8px 14px; text-align: center;
+}
+details.fv-derive-steps .fv-ds-explain {
+  flex: 1; font-size: 0.88em; color: #555; line-height: 1.5; padding-top: 6px;
+}
+
+/* Agent 输出过的别名：fv-step / fv-step-num / fv-step-content / fv-step-formula / fv-step-exp */
+details.fv-derive-steps .fv-step {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 10px 0; border-bottom: 1px dashed var(--fv-border);
+}
+details.fv-derive-steps .fv-step:last-child { border-bottom: none; }
+details.fv-derive-steps .fv-step-num {
+  flex: 0 0 30px; width: 30px; height: 30px;
+  background: #1e40af; color: #fff; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.8em; font-weight: 700; margin-top: 2px;
+}
+details.fv-derive-steps .fv-step-content { flex: 1; }
+details.fv-derive-steps .fv-step-title {
+  font-weight: 600; font-size: 0.9em; margin-bottom: 4px;
+}
+details.fv-derive-steps .fv-step-formula {
+  background: #fff; border: 1px solid var(--fv-border); border-radius: 6px;
+  padding: 10px 14px; margin: 6px 0; text-align: center;
+}
+details.fv-derive-steps .fv-step-exp {
+  font-size: 0.85em; color: #555; line-height: 1.5;
+}
+
+@media print {
+  details.fv-derive-steps { break-inside: avoid; background: #fff; }
+}
+
+/* ================================================================
+ * PATTERN 5 · 参数快查表（fv-params）
+ * ================================================================ */
+table.fv-params {
+  width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.9em;
+}
+table.fv-params th {
+  background: #f5f0e6; padding: 8px 12px; text-align: left; font-weight: 600;
+  border-bottom: 2px solid #d6c8a8;
+}
+table.fv-params td {
+  padding: 8px 12px; border-bottom: 1px solid var(--fv-border); vertical-align: top;
+}
+table.fv-params .fv-param-sym {
+  font-family: "Cambria Math", "Times New Roman", serif;
+  font-weight: 700; font-style: italic; font-size: 1.1em; white-space: nowrap;
+}
+table.fv-params .fv-param-desc { color: #555; line-height: 1.5; }
+@media print { table.fv-params { break-inside: avoid; } }
+
+/* ================================================================
+ * PATTERN 6 · 函数图像（fv-plot / fv-plot-enhanced）
+ * ================================================================ */
+.fv-plot, .fv-plot-enhanced {
+  margin: 18px 0; background: var(--fv-bg); border: 1px solid var(--fv-border);
+  border-radius: 10px; padding: 20px; text-align: center;
+}
+.fv-plot svg, .fv-plot-enhanced svg { max-width: 100%; height: auto; }
+.fv-plot .fv-plot-cap, .fv-plot-enhanced .fv-plot-cap {
+  font-size: 0.82em; color: #78716c; margin-top: 10px; line-height: 1.5;
+}
+@media print {
+  .fv-plot, .fv-plot-enhanced { break-inside: avoid; background: #fff; }
+}
+
+/* ================================================================
+ * PATTERN 7 · 3D 概念图（fv-3d-concept）
+ * ================================================================ */
+.fv-3d-concept {
+  margin: 18px 0; background: var(--fv-bg); border: 1px solid var(--fv-border);
+  border-radius: 10px; padding: 20px; text-align: center;
+}
+.fv-3d-concept svg { max-width: 100%; height: auto; }
+.fv-3d-concept .fv-3d-cap {
+  font-size: 0.82em; color: #78716c; margin-top: 10px; line-height: 1.5;
+}
+@media print { .fv-3d-concept { break-inside: avoid; background: #fff; } }
+
+/* ================================================================
+ * PATTERN 8 · 多维诊断面板（fv-multiview）
+ * ================================================================ */
+.fv-multiview {
+  margin: 18px 0; background: var(--fv-bg); border: 1px solid var(--fv-border);
+  border-radius: 10px; padding: 20px;
+}
+.fv-multiview .fv-mv-title {
+  font-size: 0.88em; font-weight: 600; color: #78716c;
+  text-align: center; margin-bottom: 16px;
+}
+.fv-multiview .fv-mv-row {
+  display: flex; flex-wrap: wrap; gap: 20px; justify-content: center;
+}
+.fv-multiview .fv-mv-panel {
+  flex: 1; min-width: 260px; max-width: 420px; text-align: center;
+}
+.fv-multiview .fv-mv-panel-label {
+  font-size: 0.8em; color: #94a3b8; margin-top: 8px;
+}
+@media print { .fv-multiview { break-inside: avoid; background: #fff; } }
+
+/* ================================================================
+ * PATTERN 9 · 联合公式解剖（fv-anatomy-plus）
+ * ================================================================ */
+.fv-anatomy-plus {
+  background: var(--fv-bg); border: 1px solid var(--fv-border); border-radius: 10px;
+  margin: 18px 0; overflow: hidden;
+}
+.fv-anatomy-plus .fv-ap-header {
+  background: #f5f0e6; padding: 14px 24px; text-align: center;
+  border-bottom: 1px solid var(--fv-border);
+}
+.fv-anatomy-plus .fv-ap-body {
+  padding: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px;
+}
+.fv-anatomy-plus .fv-ap-panel {
+  border: 1px solid var(--fv-border); border-radius: 8px; padding: 14px;
+  background: #fff;
+}
+.fv-anatomy-plus .fv-ap-panel-title {
+  font-weight: 600; font-size: 0.88em; text-align: center;
+  margin-bottom: 10px; padding-bottom: 8px;
+  border-bottom: 1px dashed var(--fv-border);
+}
+.fv-anatomy-plus .fv-ap-symbol-row {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 4px 0; font-size: 0.85em;
+}
+.fv-anatomy-plus .fv-ap-sym {
+  font-family: "Cambria Math", "Times New Roman", serif;
+  font-weight: 700; font-style: italic; min-width: 36px; text-align: center;
+  font-size: 1.05em;
+}
+.fv-anatomy-plus .fv-ap-desc { color: #555; }
+.fv-anatomy-plus .fv-ap-connector {
+  text-align: center; font-size: 1.4em; color: #94a3b8; padding: 8px 0;
+}
+@media print { .fv-anatomy-plus { break-inside: avoid; background: #fff; } }
+
+/* ================================================================
+ * PATTERN 10 · 热力表（fv-heatmap）
+ * ================================================================ */
+table.fv-heatmap {
+  border-collapse: collapse; margin: 12px auto; font-size: 0.88em;
+}
+table.fv-heatmap td {
+  padding: 10px 14px; text-align: center; border: 1px solid var(--fv-border);
+  min-width: 60px;
+}
+table.fv-heatmap th {
+  padding: 6px 10px; font-size: 0.82em; color: #64748b; font-weight: 600;
+  border: none;
+}
+
+/* ================================================================
+ * PATTERN 11 · 代码算式双栏（fv-code-math） 新
+ * 左侧代码块 + 右侧数学公式，一一对应
+ * ================================================================ */
+.fv-code-math {
+  margin: 18px 0; background: #fff; border: 1px solid var(--fv-border);
+  border-radius: 10px; padding: 16px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+}
+.fv-code-math .fv-cm-col {
+  background: var(--fv-bg); border-radius: 8px; padding: 12px 14px;
+}
+.fv-code-math .fv-cm-title {
+  font-weight: 600; font-size: 0.85em; margin-bottom: 8px;
+  padding-bottom: 6px; border-bottom: 1px dashed var(--fv-border);
+}
+.fv-code-math .fv-cm-code {
+  font-family: "Consolas", "Courier New", monospace; font-size: 0.82em;
+  white-space: pre-wrap; line-height: 1.6; background: #1e1e1e; color: #d4d4d4;
+  padding: 10px; border-radius: 6px; overflow-x: auto;
+}
+.fv-code-math .fv-cm-math {
+  font-size: 0.9em; line-height: 2;
+}
+@media print { .fv-code-math { break-inside: avoid; } }
+
+/* ================================================================
+ * PATTERN 12 · 硬性数值计算表（fv-calc-table） 新
+ * 凡是需要推导的公式，把实际数字代入一行一行列出来
+ * ================================================================ */
+.fv-calc-table {
+  width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 0.88em;
+}
+.fv-calc-table th {
+  background: #1e40af; color: #fff; padding: 8px 10px;
+  text-align: center; font-weight: 600;
+}
+.fv-calc-table th:first-child { border-radius: 6px 0 0 0; }
+.fv-calc-table th:last-child  { border-radius: 0 6px 0 0; }
+.fv-calc-table td {
+  padding: 7px 10px; border-bottom: 1px solid var(--fv-border);
+  text-align: center;
+}
+.fv-calc-table tr:nth-child(even) td { background: #f8fafc; }
+.fv-calc-table .fv-step-col {
+  width: 40px; text-align: center; font-weight: 700; color: #94a3b8;
+}
+
+/* ================================================================
+ * SVG 辅助
+ * ================================================================ */
+.fv-axis   { stroke: #94a3b8; stroke-width: 1; }
+.fv-grid   { stroke: #e2e8f0; stroke-width: 0.5; stroke-dasharray: 4 3; }
+.fv-label  { font-size: 11px; fill: #475569; font-family: "Microsoft YaHei", sans-serif; }
+.fv-tick   { font-size: 9px; fill: #94a3b8; font-family: "Microsoft YaHei", sans-serif; }
+.fv-callout { font-size: 10px; fill: #475569; font-family: "Microsoft YaHei", sans-serif; }
+
+/* ================================================================
+ * CONCRETE BLOCKS（具象化专用小组件）
+ * ================================================================ */
+
+/* 3 格状态卡：绿/黄/红 */
+.fv-state-row {
+  display: flex; gap: 10px; margin: 14px 0; flex-wrap: wrap;
+}
+.fv-state-card {
+  flex: 1; min-width: 160px; padding: 12px 14px; border-radius: 8px;
+  font-size: 0.85em; line-height: 1.5;
+}
+.fv-state-card.good  { background: #d1fae5; border-left: 4px solid #10b981; }
+.fv-state-card.warn  { background: #fef3c7; border-left: 4px solid #f59e0b; }
+.fv-state-card.bad   { background: #fee2e2; border-left: 4px solid #ef4444; }
+
+/* 公式链：横排步骤框 */
+.fv-formula-chain {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  margin: 14px 0; font-size: 0.9em; justify-content: center;
+}
+.fv-formula-chain .fv-fc-box {
+  background: #fff; border: 2px solid #e2e8f0; border-radius: 8px;
+  padding: 8px 16px; text-align: center;
+}
+.fv-formula-chain .fv-fc-box.dest { border-color: #2563eb; background: #eff6ff; }
+.fv-formula-chain .fv-fc-arrow { color: #94a3b8; font-size: 1.2em; }
+.fv-formula-chain .fv-fc-note { font-size: 0.78em; color: #64748b; }
+
+/* 题眼醒目标签 */
+.fv-pitfall-badge {
+  display: inline-block; background: #fee2e2; color: #dc2626;
+  padding: 3px 10px; border-radius: 4px; font-size: 0.8em; font-weight: 700;
+  margin-right: 4px;
+}
