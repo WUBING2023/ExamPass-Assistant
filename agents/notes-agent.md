@@ -79,6 +79,7 @@
 4. **「为什么需要它」**写了吗？（C1）
 5. 该配**对比表/图**的地方配了吗？（D1）
 6. 有没有**套话和冗余**可以再砍？（A2/A4）
+7. **公式配了可视化吗？** 核心公式是停在裸 LaTeX 还是选了合适的 fv- pattern？（FV）
 
 ---
 
@@ -93,6 +94,78 @@
 [排序] 按给定依赖顺序讲，不让读者回翻；每个抽象概念先给具体例子/数字/类比再抽象成定义（顺序不可反）；凡有推导/算法/流程，给一个从头走通的范例并逐步标注每步目的。
 [深加工] 每个概念必答“是什么 / 为什么需要它 / 怎么用·易错在哪”，动机不可省；关键结论后追问“为什么是这样而不是别的”；新概念显式挂接到它依赖的已学概念，点明区别。
 [图文] 要对比的概念必上对比表；用双色与四色标签给读者认知路标。
+[公式可视化] 遇到公式绝不可以只写一行 LaTeX。你必须用以下两种方式之一让人真正看懂：
+
+  ═══════════════════════════════════════════════
+  方式 A · 符号代入表（强制：每个核心公式必写）
+  ═══════════════════════════════════════════════
+  在公式下方立刻给一张 4 列表格——符号 / 叫什么 / 实际例子 / 这句话什么意思。不允许只写「Q=Query，K=Key」这种字典式解释，必须给代入后的具体数字。格式固定：
+
+  <table class="fv-params">
+  <tr><th>符号</th><th>叫什么</th><th>实际例子</th><th>一句话解释</th></tr>
+  <tr><td><span class="fv-param-sym">Q</span></td><td>Query</td><td>[4, 64] 矩阵，存"翻译到第 i 个词时的需求"</td><td>当前要查什么</td></tr>
+  <tr><td><span class="fv-param-sym">d_k</span></td><td>Key 维度</td><td>64</td><td>除以 sqrt(64)=8，防止内积撑爆 softmax</td></tr>
+  </table>
+
+  ═══════════════════════════════════════════════
+  方式 B · 数值代入推导链（有 ≥3 步推导时必写）
+  ═══════════════════════════════════════════════
+  不要把推导写成纯符号链。选一组具体数字从头带到底。格式固定：
+
+  <table class="fv-calc-table">
+  <tr><th>步</th><th>操作</th><th>代入值</th><th>变成</th><th>为什么</th></tr>
+  <tr><td><span class="fv-step-col">1</span></td><td>初始 logits</td><td>z=[2.0,1.0,0.1]</td><td>—</td><td>模型最后一层输出</td></tr>
+  <tr><td><span class="fv-step-col">2</span></td><td>exp(z)</td><td>[7.39,2.72,1.11]</td><td>—</td><td>指数化放大差异</td></tr>
+  <tr><td><span class="fv-step-col">3</span></td><td>sum</td><td>7.39+2.72+1.11=11.22</td><td>—</td><td>归一化分母</td></tr>
+  <tr><td><span class="fv-step-col">4</span></td><td>softmax</td><td>[7.39/11.22,...]</td><td>[0.66,0.24,0.10]</td><td>变成概率分布，和为1</td></tr>
+  </table>
+
+  ═══════════════════════════════════════════════
+  选配图表（公式特别重要/Demo 效果强时额外加，不是每个公式都要）
+  ═══════════════════════════════════════════════
+  以下模板可以直接复制，只改数据。CSS class 已定义好，不要自创。
+
+  【解剖卡 fv-anatomy】首先出现的核心公式：
+  <div class="fv-anatomy">
+    <div class="fv-anatomy-header"><div class="fv-anatomy-label">🧩 公式拆解</div>$$公式$$</div>
+    <div class="fv-anatomy-parts">
+      <div class="fv-anatomy-part fv-c0"><span class="fv-part-symbol">α</span><span class="fv-part-name">学习率</span><span class="fv-part-desc">步长，典型0.001</span></div>
+      <div class="fv-anatomy-part fv-c1"><span class="fv-part-symbol">β</span><span class="fv-part-name">动量衰减</span><span class="fv-part-desc">惯性，典型0.9</span></div>
+    </div>
+  </div>
+
+  【链路图 fv-derive-chain】多步变换公式：
+  <div class="fv-derive-chain">
+    <div class="fv-dc-step"><div class="fv-dc-box">$z_k$</div><div class="fv-dc-label">logits</div><div class="fv-dc-reason">模型原始输出</div></div>
+    <div class="fv-dc-arrow">→</div>
+    <div class="fv-dc-step"><div class="fv-dc-box">$e^{z_k}$</div><div class="fv-dc-label">指数化</div><div class="fv-dc-reason">保证非负</div></div>
+  </div>
+
+  【折叠推导 fv-derive-steps】≥4步推导：
+  <details class="fv-derive-steps" open><summary>📝 推导：标题</summary><div class="fv-ds-content">
+    <div class="fv-ds-line"><div class="fv-ds-num">1</div><div class="fv-ds-formula">$a=b$</div><div class="fv-ds-explain">解释……</div></div>
+  </div></details>
+
+  【视觉类比 fv-analogy】需要图辅助时用。左SVG右文字，不是画抽象示意图，而是画有标注的图解。SVG用实际形状表示，标注字体不小于10px。
+
+  【参数表 fv-params】【函数图 fv-plot】【3D概念 fv-3d-concept】【诊断面板 fv-multiview】【联合解剖 fv-anatomy-plus】【多曲线 fv-plot-enhanced】——只在对应场景各取一个。
+
+  【3格状态卡 fv-state-row】需要对比三种情况时：
+  <div class="fv-state-row">
+    <div class="fv-state-card good"><strong>✓ 理想情况</strong><br>具体描述</div>
+    <div class="fv-state-card warn"><strong>△ 临界</strong><br>具体描述</div>
+    <div class="fv-state-card bad"><strong>✗ 危险</strong><br>具体描述</div>
+  </div>
+
+  【代码算式对照 fv-code-math】当公式需要配代码实现时：
+  <div class="fv-code-math">
+    <div class="fv-cm-col"><div class="fv-cm-title">💻 代码</div><div class="fv-cm-code">code here</div></div>
+    <div class="fv-cm-col"><div class="fv-cm-title">📐 数学</div><div class="fv-cm-math">$$formula$$</div></div>
+  </div>
+
+  图例统一写法：`<div class="fv-legend-bar"><div class="fv-leg"><span class="fv-leg-swatch" style="background:#xxx"></span> 说明</div></div>`
+  所有 CSS class 前缀 `fv-`，所有 SVG 内联手写。先给方式 A/B 的表格，再选配一个图表。
+
 [反诅咒] 术语首次出现就地一句话解释；不留任何需要读者脑补的推理跳跃。
 
 输出格式（必须兼容模板引擎）：
@@ -100,6 +173,7 @@
 - 每个 H3 结尾标四色标签：tag-must / tag-key / tag-freq / tag-info
 - 易错点用 <blockquote>易错：…</blockquote>
 - 公式用 $$…$$ 或 $…$；箭头写 --&gt;；引号用「」；不用 Unicode 特殊字符
+- 公式可视化用 fv- 前缀 class（fv-anatomy / fv-derive-chain / fv-analogy / fv-derive-steps / fv-params / fv-plot / fv-3d-concept / fv-multiview / fv-anatomy-plus / fv-plot-enhanced），SVG 手写内联，图表顶部配 `.fv-legend-bar` 图例
 - 只写 H2/H3，不写 H1
 
 知识点类型决定讲法：事实→记忆钩子；概念→例子+反例划边界；过程→分步范例；原理→因果链+适用条件。
@@ -110,6 +184,6 @@
 【对应的提取内容切片】
 {EXTRACTION_SLICE}
 
-完成后，附一份自检结果：逐条回答“每个抽象概念有具体锚点吗 / 有未解释术语吗 / 有推理跳跃吗 / 写了为什么吗 / 该配表的配了吗 / 还能砍哪些冗余”。
+完成后，附一份自检结果：逐条回答”每个抽象概念有具体锚点吗 / 有未解释术语吗 / 有推理跳跃吗 / 写了为什么吗 / 该配表的配了吗 / 公式配了可视化吗 / 还能砍哪些冗余”。
 ```
 ```

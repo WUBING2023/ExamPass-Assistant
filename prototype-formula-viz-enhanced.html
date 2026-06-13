@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ExamPass 公式可视化增强版 — 图例 + 多维度</title>
+<script>
+MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] }
+};
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js"></script>
+<style>
+:root {
+  --fv-bg: #faf8f5; --fv-border: #e2ded8;
+  --c0: #2563eb; --c1: #dc2626; --c2: #16a34a; --c3: #9333ea;
+  --c4: #ea580c; --c5: #0891b2; --c6: #be185d; --c7: #65a30d;
+}
+
+/* ── 通用图例条 ── */
+.fv-legend-bar {
+  display: flex; flex-wrap: wrap; gap: 16px; justify-content: center;
+  padding: 10px 14px; margin: 0 0 12px 0;
+  font-size: 0.82em; color: #555;
+}
+.fv-legend-bar .fv-leg {
+  display: flex; align-items: center; gap: 6px;
+}
+.fv-legend-bar .fv-leg-swatch {
+  width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0;
+}
+.fv-legend-bar .fv-leg-swatch.sw-line { height: 3px; border-radius: 2px; width: 24px; }
+
+/* ── 多维视图容器 ── */
+.fv-multiview {
+  margin: 18px 0; background: var(--fv-bg); border: 1px solid var(--fv-border);
+  border-radius: 10px; padding: 20px;
+}
+.fv-multiview .fv-mv-title {
+  font-size: 0.88em; font-weight: 600; color: #78716c;
+  text-align: center; margin-bottom: 16px;
+}
+.fv-multiview .fv-mv-row {
+  display: flex; flex-wrap: wrap; gap: 20px; justify-content: center;
+}
+.fv-multiview .fv-mv-panel {
+  flex: 1; min-width: 260px; max-width: 420px;
+  text-align: center;
+}
+.fv-multiview .fv-mv-panel-label {
+  font-size: 0.8em; color: #94a3b8; margin-top: 8px;
+}
+@media print { .fv-multiview { break-inside: avoid; background: #fff; } }
+
+/* ── 增强函数图容器 ── */
+.fv-plot-enhanced {
+  margin: 18px 0; background: var(--fv-bg); border: 1px solid var(--fv-border);
+  border-radius: 10px; padding: 20px; text-align: center;
+}
+.fv-plot-enhanced svg { max-width: 100%; height: auto; }
+.fv-plot-enhanced .fv-plot-cap {
+  font-size: 0.82em; color: #78716c; margin-top: 10px; line-height: 1.5;
+}
+@media print { .fv-plot-enhanced { break-inside: avoid; background: #fff; } }
+
+/* ── 3D 透视概念图 ── */
+.fv-3d-concept {
+  margin: 18px 0; background: var(--fv-bg); border: 1px solid var(--fv-border);
+  border-radius: 10px; padding: 20px; text-align: center;
+}
+.fv-3d-concept svg { max-width: 100%; height: auto; }
+.fv-3d-concept .fv-3d-cap {
+  font-size: 0.82em; color: #78716c; margin-top: 10px; line-height: 1.5;
+}
+@media print { .fv-3d-concept { break-inside: avoid; background: #fff; } }
+
+/* ── 增量标注箭头 ── */
+.fv-callout { font-size: 10px; fill: #475569; font-family: "Microsoft YaHei", sans-serif; }
+</style>
+</head>
+<body style="font-family:'Microsoft YaHei','Noto Sans SC',sans-serif;max-width:900px;margin:auto;padding:24px 20px;line-height:1.75;color:#2c2c2c;background:#fdf6e3;">
+
+<h1 style="text-align:center;border-bottom:2px solid #d6c8a8;padding-bottom:8px;">
+  📐 增强公式可视化 — 图例 · 多维度 · 标注
+</h1>
+
+<!-- ================================================================ -->
+<!-- DEMO 1: 多曲线对比 + 图例 = 激活函数大比拼 -->
+<!-- ================================================================ -->
+<h2>Demo 1：激活函数多曲线对比（带图例 + 导数双轴）</h2>
+
+<div class="fv-plot-enhanced">
+  <!-- 图例条 -->
+  <div class="fv-legend-bar">
+    <div class="fv-leg"><span class="fv-leg-swatch" style="background:var(--c0)"></span> Sigmoid</div>
+    <div class="fv-leg"><span class="fv-leg-swatch" style="background:var(--c1)"></span> Tanh</div>
+    <div class="fv-leg"><span class="fv-leg-swatch" style="background:var(--c2)"></span> ReLU</div>
+    <div class="fv-leg"><span class="fv-leg-swatch" style="background:var(--c3)"></span> Leaky ReLU</div>
+    <div class="fv-leg"><span class="fv-leg-swatch" style="background:var(--c4)"></span> GELU</div>
+    <div class="fv-leg"><span class="fv-leg-swatch" style="background:var(--c5)"></span> Swish</div>
+  </div>
+
+  <svg width="600" height="340" viewBox="0 0 600 340">
+    <!-- 网格 -->
+    <defs>
+      <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e2e8f0" stroke-width="0.4"/>
+      </pattern>
+    </defs>
+    <rect x="60" y="20" width="480" height="260" fill="url(#grid)" opacity="0.5"/>
+
+    <!-- 坐标轴 -->
+    <line x1="60" y1="230" x2="540" y2="230" stroke="#94a3b8" stroke-width="1.2"/>
+    <line x1="300" y1="20" x2="300" y2="290" stroke="#94a3b8" stroke-width="1.2"/>
+    <!-- 箭头 -->
+    <polygon points="540,230 530,226 530,234" fill="#94a3b8"/>
+    <polygon points="300,20 296,30 304,30" fill="#94a3b8"/>
+
+    <!-- y 轴标签 -->
+    <text x="52" y="64" font-size="9" fill="#94a3b8" text-anchor="end">+1</text>
+    <text x="52" y="230" font-size="9" fill="#94a3b8" text-anchor="end">0</text>
+    <text x="52" y="146" font-size="9" fill="#94a3b8" text-anchor="end">0.5</text>
+    <line x1="58" y1="62" x2="542" y2="62" stroke="#e2e8f0" stroke-width="0.5" stroke-dasharray="3 3"/>
+    <line x1="58" y1="146" x2="542" y2="146" stroke="#e2e8f0" stroke-width="0.5" stroke-dasharray="3 3"/>
+    <!-- x 轴标签 -->
+    <text x="100" y="308" font-size="9" fill="#94a3b8" text-anchor="middle">−4</text>
+    <text x="300" y="308" font-size="9" fill="#94a3b8" text-anchor="middle">0</text>
+    <text x="500" y="308" font-size="9" fill="#94a3b8" text-anchor="middle">+4</text>
+
+    <!-- Sigmoid (手动贝塞尔近似) -->
+    <path d="M60,226 C120,226 180,226 210,206 C230,186 240,160 300,146 C360,132 370,106 390,86 C410,66 480,66 540,66"
+          fill="none" stroke="var(--c0)" stroke-width="2.2"/>
+    <!-- Tanh -->
+    <path d="M60,66 C120,66 180,66 210,74 C230,84 240,110 300,146 C360,182 370,208 390,218 C410,226 480,226 540,226"
+          fill="none" stroke="var(--c1)" stroke-width="2.2"/>
+    <!-- ReLU -->
+    <path d="M60,230 L300,230 L540,62" fill="none" stroke="var(--c2)" stroke-width="2.2"/>
+    <!-- Leaky ReLU -->
+    <path d="M60,226 L300,230 L540,62" fill="none" stroke="var(--c3)" stroke-width="1.8" stroke-dasharray="6 3"/>
+    <!-- GELU (smooth) -->
+    <path d="M60,226 C120,226 180,214 210,194 C230,178 240,162 300,146 C360,130 370,94 390,74 C410,58 480,62 540,62"
+          fill="none" stroke="var(--c4)" stroke-width="2.0"/>
+    <!-- Swish -->
+    <path d="M60,220 C120,220 180,200 210,180 C240,154 280,140 300,146 C320,152 360,144 390,122 C420,100 480,70 540,62"
+          fill="none" stroke="var(--c5)" stroke-width="2.0" stroke-dasharray="8 4"/>
+
+    <!-- y 轴标题 -->
+    <text x="20" y="150" font-size="10" fill="#475569" transform="rotate(-90 20 150)" text-anchor="middle">f(x)</text>
+  </svg>
+
+  <div class="fv-plot-cap">
+    📊 <strong>图例对比要点</strong>：Sigmoid/Tanh 两端饱和（梯度消失）→ 深层网络训练困难；
+    ReLU 正值区梯度恒为 1 → 缓解梯度消失 → 但负半轴"死神经元"；
+    Leaky ReLU 负半轴给微小斜率解决死神经元；GELU/Swish 平滑非单调 → Transformer 标配。
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- DEMO 2: 3D 概念图 — SVM 最大间隔超平面 -->
+<!-- ================================================================ -->
+<h2>Demo 2：三维概念图 — SVM 最大间隔分类（带图例 + 标注）</h2>
+
+<div class="fv-3d-concept">
+  <div class="fv-legend-bar">
+    <div class="fv-leg"><span class="fv-leg-swatch" style="background:var(--c0)"></span> 正类 (+1)</div>
+    <div class="fv-leg"><span class="fv-leg-swatch" style="background:var(--c1)"></span> 负类 (−1)</div>
+    <div class="fv-leg"><span class="fv-leg-swatch sw-line" style="background:var(--c2)"></span> 决策超平面 f(x)=0</div>
+    <div class="fv-leg"><span class="fv-leg-swatch sw-line" style="background:var(--c3);opacity:0.5"></span> 间隔边界 f(x)=±1</div>
+    <div class="fv-leg"><span class="fv-leg-swatch" style="background:#fbbf24;border-radius:50%;width:12px;height:12px"></span> 支持向量</div>
+  </div>
+
+  <svg width="600" height="340" viewBox="0 0 600 340">
+    <!-- 3D 透视坐标框架 -->
+    <!-- 底面投影 (x1,x2 平面) -->
+    <polygon points="100,280 280,310 520,280 340,250" fill="none" stroke="#cbd5e1" stroke-width="0.8" stroke-dasharray="3 3"/>
+    <line x1="100" y1="280" x2="100" y2="120" stroke="#cbd5e1" stroke-width="0.8"/>
+    <line x1="340" y1="250" x2="340" y2="90" stroke="#cbd5e1" stroke-width="0.8"/>
+    <line x1="520" y1="280" x2="520" y2="120" stroke="#cbd5e1" stroke-width="0.8"/>
+
+    <!-- 决策超平面（倾斜的半透明面，在3x3格网上） -->
+    <!-- 平面角点: 左上(180,100) 右上(460,90) 右下(520,180) 左下(120,200) -->
+    <polygon points="180,100 460,90 520,150 120,170" fill="var(--c2)" opacity="0.18"/>
+    <line x1="180" y1="100" x2="460" y2="90" stroke="var(--c2)" stroke-width="1.8"/>
+    <line x1="460" y1="90" x2="520" y2="150" stroke="var(--c2)" stroke-width="1.0"/>
+    <line x1="120" y1="170" x2="180" y2="100" stroke="var(--c2)" stroke-width="1.0"/>
+    <line x1="120" y1="170" x2="520" y2="150" stroke="var(--c2)" stroke-width="1.0"/>
+
+    <!-- +1 间隔边界 -->
+    <polygon points="210,80 490,70 520,125 150,140" fill="var(--c3)" opacity="0.08"/>
+    <line x1="210" y1="80" x2="490" y2="70" stroke="var(--c3)" stroke-width="1.2" stroke-dasharray="6 3"/>
+    <!-- −1 间隔边界 -->
+    <polygon points="150,120 430,110 520,175 90,200" fill="var(--c3)" opacity="0.08"/>
+    <line x1="150" y1="120" x2="430" y2="110" stroke="var(--c3)" stroke-width="1.2" stroke-dasharray="6 3"/>
+
+    <!-- 正类样本 -->
+    <circle cx="300" cy="80" r="5" fill="var(--c0)"/>
+    <circle cx="400" cy="75" r="5" fill="var(--c0)"/>
+    <circle cx="350" cy="95" r="5" fill="var(--c0)"/>
+    <circle cx="450" cy="88" r="5" fill="var(--c0)"/>
+    <circle cx="250" cy="90" r="5" fill="var(--c0)"/>
+    <circle cx="380" cy="100" r="5" fill="var(--c0)"/>
+    <!-- 正类支持向量（增大+金边） -->
+    <circle cx="370" cy="80" r="7" fill="none" stroke="#fbbf24" stroke-width="2.5"/>
+    <circle cx="370" cy="80" r="5" fill="var(--c0)"/>
+
+    <!-- 负类样本 -->
+    <circle cx="200" cy="160" r="5" fill="var(--c1)"/>
+    <circle cx="280" cy="140" r="5" fill="var(--c1)"/>
+    <circle cx="160" cy="150" r="5" fill="var(--c1)"/>
+    <circle cx="330" cy="130" r="5" fill="var(--c1)"/>
+    <circle cx="240" cy="155" r="5" fill="var(--c1)"/>
+    <circle cx="420" cy="135" r="5" fill="var(--c1)"/>
+    <!-- 负类支持向量 -->
+    <circle cx="310" cy="120" r="7" fill="none" stroke="#fbbf24" stroke-width="2.5"/>
+    <circle cx="310" cy="120" r="5" fill="var(--c1)"/>
+
+    <!-- 标注箭头 -->
+    <text x="200" y="78" class="fv-callout" fill="var(--c2)" font-weight="600">f(x)=0</text>
+    <text x="490" y="65" class="fv-callout" fill="var(--c3)">f(x)=+1</text>
+    <text x="430" y="113" class="fv-callout" fill="var(--c3)">f(x)=−1</text>
+
+    <!-- 坐标轴标签 -->
+    <text x="400" y="330" font-size="11" fill="#475569" font-weight="600">$x_1$</text>
+    <text x="530" y="290" font-size="11" fill="#475569" font-weight="600">$x_2$</text>
+    <text x="88" y="108" font-size="11" fill="#475569" font-weight="600">$f(x)$</text>
+
+    <!-- 间隔标注 -->
+    <line x1="375" y1="82" x2="340" y2="94" stroke="#78716c" stroke-width="0.8"/>
+    <text x="378" y="80" class="fv-callout">$\frac{1}{\|\beta\|}$</text>
+  </svg>
+
+  <div class="fv-3d-cap">
+    🧠 <strong>三维直觉</strong>：SVM 在特征空间找一个超平面，使到两侧最近点的距离最大化。
+    间隔宽度 = $\frac{2}{\|\beta\|}$。只有处在间隔边界上的点（支持向量）决定超平面位置，
+    其余点再远都不影响——这是 SVM 稀疏性的几何本质。
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- DEMO 3: 损失函数等高线图 — 梯度下降路径可视化 -->
+<!-- ================================================================ -->
+<h2>Demo 3：损失函数等高线 + 优化路径（带图例 + 动量对比）</h2>
+
+<div class="fv-multiview">
+  <div class="fv-mv-title">🔍 损失曲面的两种视角</div>
+
+  <div class="fv-legend-bar">
+    <div class="fv-leg"><span class="fv-leg-swatch" style="background:var(--c1)"></span> SGD</div>
+    <div class="fv-leg"><span class="fv-leg-swatch" style="background:var(--c0)"></span> SGD+Momentum</div>
+    <div class="fv-leg"><span class="fv-leg-swatch" style="background:var(--c2)"></span> Adam</div>
+    <div class="fv-leg"><span class="fv-leg-swatch" style="background:var(--c6)"></span> 全局最优点</div>
+  </div>
+
+  <div class="fv-mv-row">
+
+    <!-- 左：等高线图 (contour) -->
+    <div class="fv-mv-panel">
+      <svg width="280" height="280" viewBox="0 0 280 280">
+        <!-- 椭圆等高线（代表二次损失曲面） -->
+        <ellipse cx="140" cy="150" rx="110" ry="60" fill="none" stroke="#e2e8f0" stroke-width="0.6"/>
+        <ellipse cx="140" cy="150" rx="90" ry="48" fill="none" stroke="#e2e8f0" stroke-width="0.6"/>
+        <ellipse cx="140" cy="150" rx="70" ry="36" fill="none" stroke="#cbd5e1" stroke-width="0.8"/>
+        <ellipse cx="140" cy="150" rx="50" ry="24" fill="none" stroke="#cbd5e1" stroke-width="0.8"/>
+        <ellipse cx="140" cy="150" rx="30" ry="14" fill="none" stroke="#94a3b8" stroke-width="1.0"/>
+        <ellipse cx="140" cy="150" rx="12" ry="6" fill="none" stroke="#94a3b8" stroke-width="1.0"/>
+
+        <!-- 坐标轴 -->
+        <text x="260" y="270" font-size="10" fill="#94a3b8">$w_1$</text>
+        <text x="8" y="12" font-size="10" fill="#94a3b8">$w_2$</text>
+        <line x1="10" y1="260" x2="270" y2="260" stroke="#94a3b8" stroke-width="0.8"/>
+        <line x1="10" y1="260" x2="10" y2="10" stroke="#94a3b8" stroke-width="0.8"/>
+
+        <!-- 最优点 -->
+        <circle cx="140" cy="150" r="5" fill="var(--c6)"/>
+        <text x="148" y="148" font-size="9" fill="var(--c6)">★</text>
+
+        <!-- SGD 路径 (zigzag) -->
+        <polyline points="20,75 50,90 70,80 95,98 110,88 125,105 135,100 140,120"
+                  fill="none" stroke="var(--c1)" stroke-width="1.5" marker-end="url(#arrow-red)"/>
+        <!-- Momentum 路径 (更平滑) -->
+        <polyline points="70,50 95,70 115,75 128,100 135,115 138,130 139,143"
+                  fill="none" stroke="var(--c0)" stroke-width="1.8"/>
+        <!-- Adam 路径 (自适应) -->
+        <polyline points="40,55 65,80 90,85 110,105 122,115 132,128 138,142"
+                  fill="none" stroke="var(--c2)" stroke-width="2.0"/>
+
+        <defs>
+          <marker id="arrow-red" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+            <polygon points="0,0 8,3 0,6" fill="var(--c1)"/>
+          </marker>
+        </defs>
+      </svg>
+      <div class="fv-mv-panel-label">等高线俯视图：路径越扭曲说明梯度方向不稳定</div>
+    </div>
+
+    <!-- 右：3D 曲面示意 (perspective) -->
+    <div class="fv-mv-panel">
+      <svg width="280" height="280" viewBox="0 0 280 280">
+        <!-- 地形网格线 (纵向) -->
+        <path d="M40,200 Q90,100 140,60 Q190,100 240,200" fill="none" stroke="#cbd5e1" stroke-width="0.6"/>
+        <path d="M30,210 Q85,120 140,75 Q195,120 250,210" fill="none" stroke="#cbd5e1" stroke-width="0.6"/>
+        <path d="M20,220 Q80,140 140,90 Q200,140 260,220" fill="none" stroke="#cbd5e1" stroke-width="0.6"/>
+        <!-- 地形网格线 (横向) -->
+        <path d="M50,180 Q140,100 230,180" fill="none" stroke="#e2e8f0" stroke-width="0.4"/>
+        <path d="M40,200 Q140,120 240,200" fill="none" stroke="#e2e8f0" stroke-width="0.4"/>
+        <path d="M30,220 Q140,140 250,220" fill="none" stroke="#e2e8f0" stroke-width="0.4"/>
+
+        <!-- 盆底 (最优点) -->
+        <circle cx="140" cy="100" r="6" fill="var(--c6)"/>
+        <text x="152" y="97" font-size="9" fill="var(--c6)">★</text>
+
+        <!-- SGD 震荡下山 -->
+        <polyline points="40,32 55,70 48,95 65,130 58,110 70,135 75,105 85,120"
+                  fill="none" stroke="var(--c1)" stroke-width="1.5"/>
+        <!-- Momentum 更稳 -->
+        <polyline points="60,30 78,65 85,90 95,115 105,105 115,115 125,108 135,103"
+                  fill="none" stroke="var(--c0)" stroke-width="1.8"/>
+
+        <text x="140" y="270" font-size="10" fill="#94a3b8" text-anchor="middle">损失曲面侧视图</text>
+      </svg>
+      <div class="fv-mv-panel-label">侧视地形图：SGD震荡大、Momentum惯性平滑、Adam自适应步长</div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- DEMO 4: 双Y轴标注 — 损失 vs 准确率 训练曲线 -->
+<!-- ================================================================ -->
+<h2>Demo 4：双Y轴训练曲线（Loss + Accuracy，带图例 + 过拟合标注）</h2>
+
+<div class="fv-plot-enhanced">
+  <div class="fv-legend-bar">
+    <div class="fv-leg"><span class="fv-leg-swatch sw-line" style="background:var(--c0)"></span> 训练损失 (左轴)</div>
+    <div class="fv-leg"><span class="fv-leg-swatch sw-line" style="background:var(--c1)"></span> 验证损失 (左轴)</div>
+    <div class="fv-leg"><span class="fv-leg-swatch" style="background:var(--c2);opacity:0.5"></span> 训练准确率 (右轴)</div>
+    <div class="fv-leg"><span class="fv-leg-swatch" style="background:var(--c4);opacity:0.5"></span> 验证准确率 (右轴)</div>
+  </div>
+
+  <svg width="600" height="320" viewBox="0 0 600 320">
+    <!-- 网格 -->
+    <rect x="60" y="20" width="480" height="240" fill="#f8fafc" opacity="0.4"/>
+
+    <!-- 坐标轴 -->
+    <line x1="60" y1="260" x2="550" y2="260" stroke="#94a3b8" stroke-width="1"/>
+    <line x1="60" y1="20" x2="60" y2="260" stroke="#94a3b8" stroke-width="1"/>
+    <line x1="60" y1="20" x2="550" y2="20" stroke="#94a3b8" stroke-width="1"/>
+
+    <!-- y 左轴刻度 -->
+    <text x="52" y="264" font-size="8" fill="#94a3b8" text-anchor="end">0</text>
+    <text x="52" y="200" font-size="8" fill="#94a3b8" text-anchor="end">0.25</text>
+    <text x="52" y="140" font-size="8" fill="#94a3b8" text-anchor="end">0.5</text>
+    <text x="52" y="80" font-size="8" fill="#94a3b8" text-anchor="end">0.75</text>
+    <text x="52" y="24" font-size="8" fill="#94a3b8" text-anchor="end">1.0</text>
+    <line x1="58" y1="200" x2="550" y2="200" stroke="#e2e8f0" stroke-width="0.4" stroke-dasharray="3 3"/>
+    <line x1="58" y1="140" x2="550" y2="140" stroke="#e2e8f0" stroke-width="0.4" stroke-dasharray="3 3"/>
+    <line x1="58" y1="80" x2="550" y2="80" stroke="#e2e8f0" stroke-width="0.4" stroke-dasharray="3 3"/>
+
+    <!-- y 右轴刻度（准确率 0-100%） -->
+    <text x="558" y="264" font-size="8" fill="#94a3b8" text-anchor="start">0%</text>
+    <text x="558" y="200" font-size="8" fill="#94a3b8" text-anchor="start">25%</text>
+    <text x="558" y="140" font-size="8" fill="#94a3b8" text-anchor="start">50%</text>
+    <text x="558" y="80" font-size="8" fill="#94a3b8" text-anchor="start">75%</text>
+    <text x="558" y="24" font-size="8" fill="#94a3b8" text-anchor="start">100%</text>
+
+    <!-- x 轴 epoch -->
+    <text x="60" y="278" font-size="8" fill="#94a3b8" text-anchor="middle">0</text>
+    <text x="200" y="278" font-size="8" fill="#94a3b8" text-anchor="middle">20</text>
+    <text x="340" y="278" font-size="8" fill="#94a3b8" text-anchor="middle">40</text>
+    <text x="480" y="278" font-size="8" fill="#94a3b8" text-anchor="middle">60</text>
+
+    <text x="15" y="140" font-size="10" fill="#475569" transform="rotate(-90 15 140)" text-anchor="middle">Loss</text>
+    <text x="585" y="140" font-size="10" fill="#475569" transform="rotate(90 585 140)" text-anchor="middle">Accuracy</text>
+
+    <!-- 训练损失 -->
+    <path d="M60,80 Q100,85 120,100 T200,110 T280,95 T360,80 T440,70 T510,60"
+          fill="none" stroke="var(--c0)" stroke-width="2"/>
+    <!-- 验证损失 (后期上扬=过拟合) -->
+    <path d="M60,100 Q100,100 120,110 T200,115 T280,105 T360,105 T420,115 T480,145 T510,175"
+          fill="none" stroke="var(--c1)" stroke-width="2" stroke-dasharray="6 3"/>
+
+    <!-- 训练准确率 -->
+    <path d="M60,240 Q100,220 140,180 T240,120 T340,80 T440,50 T510,38"
+          fill="none" stroke="var(--c2)" stroke-width="1.8" stroke-dasharray="4 3"/>
+    <!-- 验证准确率 (后期平坦) -->
+    <path d="M60,240 Q100,225 140,190 T240,140 T340,100 T400,85 T480,82 T510,82"
+          fill="none" stroke="var(--c4)" stroke-width="1.8" stroke-dasharray="4 3"/>
+
+    <!-- 过拟合分界线 -->
+    <line x1="380" y1="20" x2="380" y2="260" stroke="#dc2626" stroke-width="1.2" stroke-dasharray="5 4" opacity="0.6"/>
+    <text x="430" y="40" font-size="9" fill="#dc2626" font-weight="600">← 过拟合区</text>
+    <text x="200" y="55" font-size="9" fill="#16a34a" font-weight="600">泛化良好区 →</text>
+
+    <!-- y轴 title -->
+    <text x="10" y="140" font-size="10" fill="#475569" transform="rotate(-90 10 140)" text-anchor="middle">Loss</text>
+  </svg>
+
+  <div class="fv-plot-cap">
+    📊 <strong>识别过拟合</strong>：当训练损失↓而验证损失↑时 → 模型开始记忆训练数据噪声。
+    最佳停止点在验证损失最低处（约 epoch 35）。此时训练和验证准确率之间的差距（gap）最小。
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- DEMO 5: 公式解剖卡增强版 — 带"哪来的"链路 + 下钻箭头 -->
+<!-- ================================================================ -->
+<h2>Demo 5：公式解剖卡增强版 — Softmax + 交叉熵联合图解</h2>
+
+<style>
+.fv-anatomy-plus {
+  background: #faf8f5; border: 1px solid #e2ded8; border-radius: 10px;
+  margin: 18px 0; overflow: hidden;
+}
+.fv-anatomy-plus .fv-ap-header {
+  background: #f5f0e6; padding: 14px 24px; text-align: center;
+  border-bottom: 1px solid #e2ded8;
+}
+.fv-anatomy-plus .fv-ap-body {
+  padding: 20px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.fv-anatomy-plus .fv-ap-panel {
+  border: 1px solid #e2ded8; border-radius: 8px; padding: 14px;
+  background: #fff;
+}
+.fv-anatomy-plus .fv-ap-panel-title {
+  font-weight: 600; font-size: 0.88em; text-align: center;
+  margin-bottom: 10px; padding-bottom: 8px;
+  border-bottom: 1px dashed #e2ded8;
+}
+.fv-anatomy-plus .fv-ap-symbol-row {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 4px 0; font-size: 0.85em;
+}
+.fv-anatomy-plus .fv-ap-sym {
+  font-family: "Cambria Math", "Times New Roman", serif;
+  font-weight: 700; font-style: italic; min-width: 36px; text-align: center;
+  font-size: 1.05em;
+}
+.fv-anatomy-plus .fv-ap-desc { color: #555; }
+.fv-anatomy-plus .fv-ap-connector {
+  text-align: center; font-size: 1.4em; color: #94a3b8;
+  padding: 8px 0;
+}
+@media print { .fv-anatomy-plus { break-inside: avoid; background: #fff; } }
+</style>
+
+<div class="fv-anatomy-plus">
+  <div class="fv-ap-header">
+    <div style="font-size:0.85em;color:#78716c;margin-bottom:4px;">🧩 联合公式解剖 · 分类损失全链路</div>
+    $$ \text{Softmax: } \hat{y}_k = \frac{e^{z_k}}{\sum_j e^{z_j}} \quad\longrightarrow\quad \mathcal{L}_{CE} = -\sum_k y_k \log(\hat{y}_k) $$
+  </div>
+
+  <div class="fv-ap-body">
+    <!-- 左面板：Softmax -->
+    <div class="fv-ap-panel">
+      <div class="fv-ap-panel-title" style="color:var(--c0);">① Softmax：分数→概率</div>
+      <div class="fv-ap-symbol-row">
+        <span class="fv-ap-sym" style="color:var(--c0);">z<sub>k</sub></span>
+        <span class="fv-ap-desc"><strong>logits</strong> — 模型原始输出，可为负数，不加约束</span>
+      </div>
+      <div class="fv-ap-symbol-row">
+        <span class="fv-ap-sym" style="color:var(--c4);">e<sup>z<sub>k</sub></sup></span>
+        <span class="fv-ap-desc"><strong>指数化</strong> — 保证非负，放大差异：$z_k=2$ 变 7.4，$z_k=-1$ 变 0.37</span>
+      </div>
+      <div class="fv-ap-symbol-row">
+        <span class="fv-ap-sym" style="color:var(--c3);">Σ<sub>j</sub> e<sup>z<sub>j</sub></sup></span>
+        <span class="fv-ap-desc"><strong>归一化分母</strong> — 让所有 $\hat{y}_k$ 和为 1，形成合法概率分布</span>
+      </div>
+      <div class="fv-ap-symbol-row">
+        <span class="fv-ap-sym" style="color:var(--c2);">$\hat{y}_k$</span>
+        <span class="fv-ap-desc"><strong>输出</strong> — 类别 $k$ 的预测概率，$\hat{y}_k\in(0,1)$，$\sum_k\hat{y}_k=1$</span>
+      </div>
+    </div>
+
+    <!-- 右面板：交叉熵 -->
+    <div class="fv-ap-panel">
+      <div class="fv-ap-panel-title" style="color:var(--c1);">② 交叉熵：概率→损失标量</div>
+      <div class="fv-ap-symbol-row">
+        <span class="fv-ap-sym" style="color:var(--c1);">$y_k$</span>
+        <span class="fv-ap-desc"><strong>真实标签</strong> — one-hot：正确类=1 其余=0，非0即1</span>
+      </div>
+      <div class="fv-ap-symbol-row">
+        <span class="fv-ap-sym" style="color:var(--c0);">$\log(\hat{y}_k)$</span>
+        <span class="fv-ap-desc"><strong>对数概率</strong> — $\hat{y}_k\to 1$ 时 $\log(\hat{y}_k)\to 0$；$\hat{y}_k\to 0$ 时 $\to -\infty$</span>
+      </div>
+      <div class="fv-ap-symbol-row">
+        <span class="fv-ap-sym" style="color:var(--c4);">− 号</span>
+        <span class="fv-ap-desc"><strong>取负</strong> — $\log(\hat{y}_k)\le 0$，取负后损失≥0；概率高→损失小</span>
+      </div>
+      <div class="fv-ap-symbol-row">
+        <span class="fv-ap-sym" style="color:var(--c6);">$\mathcal{L}_{CE}$</span>
+        <span class="fv-ap-desc"><strong>最终损失</strong> — 标量，反向传播的起点；one-hot下=$-\log(\hat{y}_{true})$</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="fv-ap-connector">
+    ↑ Softmax 输出 $\hat{y}_k$ → 作为交叉熵的输入 ↓
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- DEMO 6: 混淆矩阵可视化 + 评估指标多面板 -->
+<!-- ================================================================ -->
+<h2>Demo 6：混淆矩阵热力图 + 评估指标雷达图</h2>
+
+<div class="fv-multiview">
+  <div class="fv-mv-title">📊 二分类模型诊断面板</div>
+  <div class="fv-mv-row">
+
+    <!-- 混淆矩阵热力图 -->
+    <div class="fv-mv-panel">
+      <svg width="240" height="240" viewBox="0 0 240 240">
+        <!-- 4格 -->
+        <rect x="40" y="40" width="70" height="70" fill="#d1fae5" stroke="#a7f3d0" stroke-width="1.5" rx="4"/>
+        <text x="75" y="72" font-size="22" font-weight="700" fill="#065f46" text-anchor="middle">TN</text>
+        <text x="75" y="90" font-size="13" font-weight="600" fill="#059669" text-anchor="middle">85</text>
+
+        <rect x="130" y="40" width="70" height="70" fill="#fee2e2" stroke="#fecaca" stroke-width="1.5" rx="4"/>
+        <text x="165" y="72" font-size="22" font-weight="700" fill="#991b1b" text-anchor="middle">FP</text>
+        <text x="165" y="90" font-size="13" font-weight="600" fill="#dc2626" text-anchor="middle">10</text>
+
+        <rect x="40" y="130" width="70" height="70" fill="#fee2e2" stroke="#fecaca" stroke-width="1.5" rx="4"/>
+        <text x="75" y="162" font-size="22" font-weight="700" fill="#991b1b" text-anchor="middle">FN</text>
+        <text x="75" y="180" font-size="13" font-weight="600" fill="#dc2626" text-anchor="middle">5</text>
+
+        <rect x="130" y="130" width="70" height="70" fill="#d1fae5" stroke="#a7f3d0" stroke-width="1.5" rx="4"/>
+        <text x="165" y="162" font-size="22" font-weight="700" fill="#065f46" text-anchor="middle">TP</text>
+        <text x="165" y="180" font-size="13" font-weight="600" fill="#059669" text-anchor="middle">50</text>
+
+        <!-- 轴标签 -->
+        <text x="120" y="28" font-size="10" fill="#64748b" text-anchor="middle">预测</text>
+        <text x="120" y="230" font-size="10" fill="#475569" text-anchor="middle">实际</text>
+        <text x="20" y="45" font-size="9" fill="#94a3b8">负</text>
+        <text x="20" y="135" font-size="9" fill="#94a3b8">正</text>
+        <text x="75" y="225" font-size="9" fill="#94a3b8">负类</text>
+        <text x="165" y="225" font-size="9" fill="#94a3b8">正类</text>
+      </svg>
+      <div class="fv-mv-panel-label">混淆矩阵（数字为示例）</div>
+    </div>
+
+    <!-- 指标计算卡 -->
+    <div class="fv-mv-panel" style="text-align:left;font-size:0.85em;">
+      <table style="width:100%;border-collapse:collapse;font-size:0.92em;">
+        <tr style="border-bottom:1px solid #e2ded8;">
+          <td style="padding:6px 8px;"><strong>准确率</strong></td>
+          <td style="padding:6px 8px;text-align:right;">$\frac{85+50}{150}=0.90$</td>
+          <td style="padding:6px 8px;color:#94a3b8;">整体正确率</td>
+        </tr>
+        <tr style="border-bottom:1px solid #e2ded8;">
+          <td style="padding:6px 8px;"><strong>精确率</strong></td>
+          <td style="padding:6px 8px;text-align:right;">$\frac{50}{50+10}=0.833$</td>
+          <td style="padding:6px 8px;color:#94a3b8;">预测为正中真正的占比</td>
+        </tr>
+        <tr style="border-bottom:1px solid #e2ded8;">
+          <td style="padding:6px 8px;"><strong>召回率</strong></td>
+          <td style="padding:6px 8px;text-align:right;">$\frac{50}{50+5}=0.909$</td>
+          <td style="padding:6px 8px;color:#94a3b8;">真实正例中被找出多少</td>
+        </tr>
+        <tr style="border-bottom:1px solid #e2ded8;">
+          <td style="padding:6px 8px;"><strong>F1 分数</strong></td>
+          <td style="padding:6px 8px;text-align:right;">$\frac{2×0.833×0.909}{0.833+0.909}=0.869$</td>
+          <td style="padding:6px 8px;color:#94a3b8;">精确率与召回率的调和平均</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- 总结 -->
+<!-- ================================================================ -->
+<hr style="margin:30px 0;border-color:#d6c8a8;">
+<h2 style="text-align:center;color:#065f46;">✅ 增强要点总结</h2>
+<table style="width:100%;font-size:0.9em;">
+  <tr><th style="width:20%">增强项</th><th>说明</th></tr>
+  <tr><td>🎨 <strong>图例条</strong></td><td>所有多线/多区域图表顶部配 `.fv-legend-bar` + `.fv-leg`，色块+含义一目了然</td></tr>
+  <tr><td>📐 <strong>3D 概念图</strong></td><td>SVM 超平面、损失曲面等用透视投影画法，三维直觉一个图讲清</td></tr>
+  <tr><td>🗺️ <strong>等高线图</strong></td><td>损失曲面俯视图 + 多优化器路径对比，直观展示 zigzag vs. 平滑</td></tr>
+  <tr><td>📈 <strong>双Y轴训练曲线</strong></td><td>Loss（左轴）+ Accuracy（右轴）+ 过拟合标注，训练诊断图标配</td></tr>
+  <tr><td>🧩 <strong>联合公式解剖</strong></td><td>多个相关公式拆成并排面板，底部标连接关系——不再孤立看单个公式</td></tr>
+  <tr><td>📊 <strong>混淆矩阵 + 指标卡</strong></td><td>热力图颜色编码（绿=正确，红=错误）+ 公式推导 + 实际数值示例</td></tr>
+</table>
+
+</body>
+</html>

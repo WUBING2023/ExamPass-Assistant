@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ExamPass 公式可视化原型测试</title>
+<script>
+MathJax = {
+  tex: {
+    inlineMath: [['$', '$'], ['\\(', '\\)']],
+    displayMath: [['$$', '$$'], ['\\[', '\\]']]
+  }
+};
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js"></script>
+<style>
+/* === Formula Visualization Styles === */
+:root {
+  --formula-card-bg: #faf8f5;
+  --formula-card-border: #e2ded8;
+  --anatomy-blue: #dbeafe;
+  --anatomy-blue-text: #1e40af;
+  --anatomy-green: #d1fae5;
+  --anatomy-green-text: #065f46;
+  --anatomy-amber: #fef3c7;
+  --anatomy-amber-text: #92400e;
+  --anatomy-red: #fee2e2;
+  --anatomy-red-text: #991b1b;
+  --anatomy-purple: #ede9fe;
+  --anatomy-purple-text: #5b21b6;
+  --anatomy-rose: #ffe4e6;
+  --anatomy-rose-text: #9f1239;
+  --anatomy-cyan: #cffafe;
+  --anatomy-cyan-text: #155e75;
+  --step-bg: #f0f9ff;
+  --step-border: #bae6fd;
+  --step-active: #0ea5e9;
+}
+
+/* ── Formula Anatomy Card ── */
+div.formula-anatomy {
+  background: var(--formula-card-bg);
+  border: 1px solid var(--formula-card-border);
+  border-radius: 10px;
+  margin: 18px 0;
+  overflow: hidden;
+}
+div.formula-anatomy .fm-header {
+  background: #f5f0e6;
+  padding: 14px 20px;
+  text-align: center;
+  border-bottom: 1px solid var(--formula-card-border);
+}
+div.formula-anatomy .fm-header .fm-title {
+  font-size: 0.85em;
+  color: #78716c;
+  margin-bottom: 6px;
+}
+div.formula-anatomy .fm-header mjx-container {
+  font-size: 1.15em;
+}
+div.formula-anatomy .fm-parts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0;
+  padding: 0;
+}
+div.formula-anatomy .fm-part {
+  padding: 12px 14px;
+  text-align: center;
+  border-right: 1px dashed #e2ded8;
+  border-top: 1px dashed #e2ded8;
+}
+div.formula-anatomy .fm-part:last-child {
+  border-right: none;
+}
+div.formula-anatomy .fm-part .fm-symbol {
+  font-family: "Cambria Math", "Times New Roman", serif;
+  font-size: 1.35em;
+  font-weight: 700;
+  font-style: italic;
+  display: block;
+  margin-bottom: 4px;
+}
+div.formula-anatomy .fm-part .fm-name {
+  font-size: 0.85em;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 2px;
+}
+div.formula-anatomy .fm-part .fm-desc {
+  font-size: 0.78em;
+  color: #78716c;
+  line-height: 1.4;
+}
+/* Color variants for parts */
+.fm-part.c0 .fm-symbol { color: #1e40af; } .fm-part.c0 .fm-name { color: #1e40af; }
+.fm-part.c1 .fm-symbol { color: #065f46; } .fm-part.c1 .fm-name { color: #065f46; }
+.fm-part.c2 .fm-symbol { color: #92400e; } .fm-part.c2 .fm-name { color: #92400e; }
+.fm-part.c3 .fm-symbol { color: #991b1b; } .fm-part.c3 .fm-name { color: #991b1b; }
+.fm-part.c4 .fm-symbol { color: #5b21b6; } .fm-part.c4 .fm-name { color: #5b21b6; }
+.fm-part.c5 .fm-symbol { color: #9f1239; } .fm-part.c5 .fm-name { color: #9f1239; }
+.fm-part.c6 .fm-symbol { color: #155e75; } .fm-part.c6 .fm-name { color: #155e75; }
+
+/* ── Derivation Chain ── */
+div.derivation-chain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0;
+  margin: 18px 0;
+  background: var(--formula-card-bg);
+  border: 1px solid var(--formula-card-border);
+  border-radius: 10px;
+  padding: 18px 12px;
+  overflow-x: auto;
+}
+div.derivation-chain .dc-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 120px;
+  flex: 0 0 auto;
+  padding: 8px 6px;
+}
+div.derivation-chain .dc-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 48px;
+  color: #94a3b8;
+  font-size: 1.5em;
+  padding-top: 8px;
+}
+div.derivation-chain .dc-formula-box {
+  background: #fff;
+  border: 2px solid var(--step-border);
+  border-radius: 8px;
+  padding: 10px 16px;
+  text-align: center;
+  min-width: 100px;
+}
+div.derivation-chain .dc-label {
+  font-size: 0.78em;
+  color: #475569;
+  margin-top: 6px;
+  text-align: center;
+  line-height: 1.35;
+  max-width: 130px;
+}
+div.derivation-chain .dc-reason {
+  font-size: 0.72em;
+  color: #94a3b8;
+  margin-top: 3px;
+  font-style: italic;
+}
+
+/* ── Visual Analogy Box ── */
+div.visual-analogy {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  margin: 18px 0;
+  background: var(--formula-card-bg);
+  border: 1px solid var(--formula-card-border);
+  border-radius: 10px;
+  padding: 20px;
+  flex-wrap: wrap;
+}
+div.visual-analogy .va-visual {
+  flex: 0 0 auto;
+  min-width: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+div.visual-analogy .va-formula {
+  flex: 1;
+  min-width: 200px;
+}
+div.visual-analogy .va-caption {
+  font-size: 0.82em;
+  color: #78716c;
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+/* ── Parameter Table (inside formula cards) ── */
+table.formula-params {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 0.9em;
+}
+table.formula-params th {
+  background: #f5f0e6;
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 2px solid #d6c8a8;
+}
+table.formula-params td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #e2ded8;
+  vertical-align: top;
+}
+table.formula-params .param-symbol {
+  font-family: "Cambria Math", "Times New Roman", serif;
+  font-weight: 700;
+  font-style: italic;
+  font-size: 1.1em;
+}
+table.formula-params .param-desc {
+  color: #555;
+  line-height: 1.5;
+}
+
+/* ── Geometric Intuition Box ── */
+div.geo-intuition {
+  margin: 18px 0;
+  background: var(--formula-card-bg);
+  border: 1px solid var(--formula-card-border);
+  border-radius: 10px;
+  padding: 20px;
+  text-align: center;
+}
+div.geo-intuition .geo-caption {
+  font-size: 0.82em;
+  color: #78716c;
+  margin-top: 10px;
+  line-height: 1.5;
+}
+
+/* ── Step-by-step derivation accordion ── */
+details.derivation-steps {
+  margin: 18px 0;
+  background: var(--formula-card-bg);
+  border: 1px solid var(--formula-card-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+details.derivation-steps summary {
+  padding: 14px 20px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #1e40af;
+  user-select: none;
+  font-size: 0.95em;
+  background: #f5f0e6;
+}
+details.derivation-steps summary:hover {
+  background: #efe8d8;
+}
+details.derivation-steps .ds-content {
+  padding: 16px 20px;
+}
+details.derivation-steps .ds-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px dashed #e2ded8;
+}
+details.derivation-steps .ds-line:last-child {
+  border-bottom: none;
+}
+details.derivation-steps .ds-num {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  background: #1e40af;
+  color: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78em;
+  font-weight: 700;
+  margin-top: 2px;
+}
+details.derivation-steps .ds-formula {
+  flex: 0 0 auto;
+  min-width: 140px;
+  background: #fff;
+  border: 1px solid #e2ded8;
+  border-radius: 6px;
+  padding: 8px 14px;
+  text-align: center;
+}
+details.derivation-steps .ds-explain {
+  flex: 1;
+  font-size: 0.88em;
+  color: #555;
+  line-height: 1.5;
+  padding-top: 6px;
+}
+
+/* ── Print-friendly ── */
+@media print {
+  div.formula-anatomy, div.derivation-chain, div.visual-analogy, div.geo-intuition, details.derivation-steps {
+    break-inside: avoid;
+    background: #fff;
+  }
+}
+</style>
+</head>
+<body style="font-family:'Microsoft YaHei','Noto Sans SC',sans-serif;max-width:860px;margin:auto;padding:24px 20px;line-height:1.75;color:#2c2c2c;background:#fdf6e3;">
+
+<h1 style="text-align:center;border-bottom:2px solid #d6c8a8;padding-bottom:8px;">📐 ExamPass 公式可视化原型测试</h1>
+<p style="text-align:center;color:#78716c;">下面对比同一条公式在传统呈现和可视化呈现下的差异</p>
+
+<hr style="margin:24px 0;border-color:#d6c8a8;">
+
+<!-- ================================================================ -->
+<!-- PATTERN 1: Formula Anatomy Card -->
+<!-- ================================================================ -->
+<h2>模式 1：公式解剖卡</h2>
+<p>传统写法：注意力机制定义为 $\text{Attention}(Q,K,V)=\text{softmax}(\frac{QK^T}{\sqrt{d_k}})V$，其中 $Q$ 是 Query，$K$ 是 Key，$V$ 是 Value，$d_k$ 是 Key 的维度，softmax 用于归一化。</p>
+
+<h3>可视化版本：</h3>
+
+<div class="formula-anatomy">
+  <div class="fm-header">
+    <div class="fm-title">🧩 公式解剖 · 缩放点积注意力</div>
+    $$ \text{Attention}(Q, K, V) = \text{softmax}\!\left(\frac{QK^T}{\sqrt{d_k}}\right) V $$
+  </div>
+  <div class="fm-parts">
+    <div class="fm-part c0">
+      <span class="fm-symbol">Q</span>
+      <span class="fm-name">Query（查询）</span>
+      <span class="fm-desc">"我要找什么"<br/>当前要关注的词向量</span>
+    </div>
+    <div class="fm-part c1">
+      <span class="fm-symbol">K</span>
+      <span class="fm-name">Key（键）</span>
+      <span class="fm-desc">"我是谁"<br/>所有词的身份标签</span>
+    </div>
+    <div class="fm-part c2">
+      <span class="fm-symbol">d<sub>k</sub></span>
+      <span class="fm-name">缩放因子</span>
+      <span class="fm-desc">Key 的维度<br/>防内积过大→梯度消失</span>
+    </div>
+    <div class="fm-part c3">
+      <span class="fm-symbol">V</span>
+      <span class="fm-name">Value（值）</span>
+      <span class="fm-desc">"我有什么信息"<br/>根据权重取信息</span>
+    </div>
+    <div class="fm-part c4">
+      <span class="fm-symbol">softmax</span>
+      <span class="fm-name">归一化</span>
+      <span class="fm-desc">把相关性分数<br/>变成概率分布（和为1）</span>
+    </div>
+  </div>
+</div>
+
+<hr style="margin:24px 0;border-color:#d6c8a8;">
+
+<!-- ================================================================ -->
+<!-- PATTERN 2: Derivation Chain -->
+<!-- ================================================================ -->
+<h2>模式 2：推导链路图</h2>
+<p>传统写法：交叉熵损失 $L = -\frac{1}{N}\sum_i\sum_c y_{i,c}\log(\hat{y}_{i,c})$，其中 $y$ 是真实标签，$\hat{y}$ 是预测概率。</p>
+
+<h3>可视化版本：</h3>
+
+<div class="derivation-chain">
+  <div class="dc-step">
+    <div class="dc-formula-box">$\hat{y}_i$</div>
+    <div class="dc-label">模型输出概率<br/>(softmax 后)</div>
+    <div class="dc-reason">预测分布</div>
+  </div>
+  <div class="dc-arrow">→</div>
+  <div class="dc-step">
+    <div class="dc-formula-box">$\log(\hat{y}_{i,c})$</div>
+    <div class="dc-label">取对数</div>
+    <div class="dc-reason">将乘法变加法<br/>放大微小概率差异</div>
+  </div>
+  <div class="dc-arrow">→</div>
+  <div class="dc-step">
+    <div class="dc-formula-box">$y_{i,c}\!\log(\hat{y}_{i,c})$</div>
+    <div class="dc-label">乘真实标签</div>
+    <div class="dc-reason">只保留正确类<br/>其他类贡献=0</div>
+  </div>
+  <div class="dc-arrow">→</div>
+  <div class="dc-step">
+    <div class="dc-formula-box">$-\sum$</div>
+    <div class="dc-label">求和取负</div>
+    <div class="dc-reason">负号使损失≥0<br/>概率越高损失越小</div>
+  </div>
+  <div class="dc-arrow">→</div>
+  <div class="dc-step">
+    <div class="dc-formula-box">$\frac{1}{N}\sum$</div>
+    <div class="dc-label">求平均</div>
+    <div class="dc-reason">消除batch size影响<br/>使不同batch可比</div>
+  </div>
+</div>
+
+<hr style="margin:24px 0;border-color:#d6c8a8;">
+
+<!-- ================================================================ -->
+<!-- PATTERN 3: Visual Analogy -->
+<!-- ================================================================ -->
+<h2>模式 3：视觉类比图</h2>
+<p>传统写法：Dropout 在训练时以概率 $p$ 随机将神经元置零，测试时所有神经元乘以 $(1-p)$ 以保证期望一致。</p>
+
+<h3>可视化版本：</h3>
+
+<div class="visual-analogy">
+  <div class="va-visual">
+    <svg width="220" height="180" viewBox="0 0 220 180">
+      <!-- Training (with dropout) -->
+      <text x="50" y="18" text-anchor="middle" font-size="11" fill="#78716c">训练时</text>
+      <circle cx="20" cy="55" r="12" fill="#dbeafe" stroke="#3b82f6" stroke-width="2"/>
+      <circle cx="50" cy="40" r="12" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 2"/>
+      <circle cx="80" cy="55" r="12" fill="#dbeafe" stroke="#3b82f6" stroke-width="2"/>
+      <circle cx="50" cy="80" r="12" fill="#dbeafe" stroke="#3b82f6" stroke-width="2"/>
+      <!-- Cross on dropped neuron -->
+      <line x1="43" y1="33" x2="57" y2="47" stroke="#ef4444" stroke-width="1.5"/>
+      <line x1="57" y1="33" x2="43" y2="47" stroke="#ef4444" stroke-width="1.5"/>
+      <text x="50" y="110" text-anchor="middle" font-size="10" fill="#ef4444">随机丢弃 (p=0.5)</text>
+
+      <text x="170" y="18" text-anchor="middle" font-size="11" fill="#78716c">测试时</text>
+      <circle cx="140" cy="55" r="12" fill="#d1fae5" stroke="#10b981" stroke-width="2" opacity="0.5"/>
+      <circle cx="170" cy="40" r="12" fill="#d1fae5" stroke="#10b981" stroke-width="2" opacity="0.5"/>
+      <circle cx="200" cy="55" r="12" fill="#d1fae5" stroke="#10b981" stroke-width="2" opacity="0.5"/>
+      <circle cx="170" cy="80" r="12" fill="#d1fae5" stroke="#10b981" stroke-width="2" opacity="0.5"/>
+      <text x="170" y="110" text-anchor="middle" font-size="10" fill="#10b981">全部保留 × 0.5</text>
+    </svg>
+  </div>
+  <div class="va-formula">
+    <strong><span class="kp">Dropout 的直觉</span></strong>
+    <p style="margin:6px 0;font-size:0.92em;">
+      训练时随机"关闭"部分神经元 → 每次训练看到的都是不同的小网络 → 相当于同时在训练指数多个子网络并取平均（集成学习效果）→ 每个神经元必须学会独立有用，不能依赖特定同伴。
+    </p>
+    <div class="va-caption">
+      🧠 <strong>记忆钩子</strong>：像篮球队训练——每次随机抽掉一两个人，剩下的人必须都能打，比赛时才不会因为缺了谁就崩盘。
+    </div>
+  </div>
+</div>
+
+<hr style="margin:24px 0;border-color:#d6c8a8;">
+
+<!-- ================================================================ -->
+<!-- PATTERN 4: Derivation Steps (collapsible) -->
+<!-- ================================================================ -->
+<h2>模式 4：折叠式逐步推导</h2>
+<p>传统写法：均方误差梯度 $\frac{\partial L}{\partial w} = \frac{1}{N}\sum_{i=1}^N 2(wx_i + b - y_i) \cdot x_i$。</p>
+
+<h3>可视化版本：</h3>
+
+<details class="derivation-steps" open>
+  <summary>📝 推导过程：MSE 对权重 w 求梯度</summary>
+  <div class="ds-content">
+    <div class="ds-line">
+      <div class="ds-num">1</div>
+      <div class="ds-formula">$L = \frac{1}{N}\sum_{i}(wx_i + b - y_i)^2$</div>
+      <div class="ds-explain"><strong>起点：MSE 损失函数定义</strong>。$wx_i+b$ 是预测值，$y_i$ 是真实值，差的平方衡量误差。</div>
+    </div>
+    <div class="ds-line">
+      <div class="ds-num">2</div>
+      <div class="ds-formula">$\frac{\partial L}{\partial w}$</div>
+      <div class="ds-explain"><strong>需求：损失对 w 的梯度</strong>，用来更新 $w \leftarrow w - \eta \cdot \frac{\partial L}{\partial w}$。</div>
+    </div>
+    <div class="ds-line">
+      <div class="ds-num">3</div>
+      <div class="ds-formula">$\frac{\partial}{\partial w}(wx_i + b - y_i)^2$</div>
+      <div class="ds-explain"><strong>链式法则</strong>：外层 $u^2$ 导数为 $2u$，内层 $wx_i+b-y_i$ 对 $w$ 导数为 $x_i$。</div>
+    </div>
+    <div class="ds-line">
+      <div class="ds-num">4</div>
+      <div class="ds-formula">$2(wx_i + b - y_i) \cdot x_i$</div>
+      <div class="ds-explain"><strong>单项结果</strong>：$2\cdot\text{误差}\cdot\text{输入}$。直观：误差越大、输入越大 → 梯度越大。</div>
+    </div>
+    <div class="ds-line">
+      <div class="ds-num">5</div>
+      <div class="ds-formula">$\frac{1}{N}\sum_{i=1}^N 2x_i(wx_i+b-y_i)$</div>
+      <div class="ds-explain"><strong>最终结果</strong>：1/N 来自损失定义，对所有样本梯度取平均。</div>
+    </div>
+  </div>
+</details>
+
+<hr style="margin:24px 0;border-color:#d6c8a8;">
+
+<!-- ================================================================ -->
+<!-- PATTERN 5: Parameter Table -->
+<!-- ================================================================ -->
+<h2>模式 5：参数快查表</h2>
+<p>传统写法：Adam 更新规则 $m_t = \beta_1 m_{t-1} + (1-\beta_1)g_t$，$v_t = \beta_2 v_{t-1} + (1-\beta_2)g_t^2$，$\hat{m}_t = m_t/(1-\beta_1^t)$，$\hat{v}_t = v_t/(1-\beta_2^t)$，$\theta_t = \theta_{t-1} - \alpha\cdot\hat{m}_t/(\sqrt{\hat{v}_t}+\epsilon)$。</p>
+
+<h3>可视化版本：</h3>
+
+<table class="formula-params">
+  <tr>
+    <th>符号</th>
+    <th>含义</th>
+    <th>典型值</th>
+    <th>作用</th>
+  </tr>
+  <tr>
+    <td class="param-symbol">α</td>
+    <td>学习率 (learning rate)</td>
+    <td>0.001</td>
+    <td>控制每一步更新多大；太大震荡、太小收敛慢</td>
+  </tr>
+  <tr>
+    <td class="param-symbol">β₁</td>
+    <td>一阶动量衰减率</td>
+    <td>0.9</td>
+    <td>像"惯性"——过去梯度的指数移动平均有多大影响</td>
+  </tr>
+  <tr>
+    <td class="param-symbol">β₂</td>
+    <td>二阶动量衰减率</td>
+    <td>0.999</td>
+    <td>像"自适应刹车"——过去梯度平方影响多大步长</td>
+  </tr>
+  <tr>
+    <td class="param-symbol">ε</td>
+    <td>数值稳定常数</td>
+    <td>10⁻⁸</td>
+    <td>防止除以零；通常不需要调整</td>
+  </tr>
+  <tr>
+    <td class="param-symbol">m<sub>t</sub></td>
+    <td>一阶矩估计 (动量)</td>
+    <td>—</td>
+    <td>梯度方向的平滑估计 → 加速收敛、减少震荡</td>
+  </tr>
+  <tr>
+    <td class="param-symbol">v<sub>t</sub></td>
+    <td>二阶矩估计 (自适应缩放)</td>
+    <td>—</td>
+    <td>梯度大小的平滑估计 → 不同参数用不同学习率</td>
+  </tr>
+</table>
+
+<hr style="margin:24px 0;border-color:#d6c8a8;">
+
+<!-- ================================================================ -->
+<!-- PATTERN 6: Function Plot (SVG) -->
+<!-- ================================================================ -->
+<h2>模式 6：函数图像 (纯 SVG)</h2>
+<p>传统写法：Sigmoid 函数 $\sigma(x) = \frac{1}{1+e^{-x}}$，值域 $(0,1)$，在 $x=0$ 处导数为 0.25，输入过大或过小时梯度趋近于 0（梯度饱和）。</p>
+
+<h3>可视化版本：</h3>
+
+<div class="geo-intuition">
+  <svg width="500" height="280" viewBox="0 0 500 280">
+    <!-- Axes -->
+    <line x1="60" y1="220" x2="460" y2="220" stroke="#94a3b8" stroke-width="1"/>
+    <line x1="260" y1="30" x2="260" y2="240" stroke="#94a3b8" stroke-width="1"/>
+    <!-- Labels -->
+    <text x="465" y="225" font-size="12" fill="#475569">x</text>
+    <text x="255" y="20" font-size="12" fill="#475569">σ(x)</text>
+    <!-- Grid lines -->
+    <line x1="60" y1="120" x2="460" y2="120" stroke="#e2e8f0" stroke-width="0.5" stroke-dasharray="4 3"/>
+    <line x1="60" y1="170" x2="460" y2="170" stroke="#e2e8f0" stroke-width="0.5" stroke-dasharray="4 3"/>
+    <line x1="160" y1="30" x2="160" y2="240" stroke="#e2e8f0" stroke-width="0.5" stroke-dasharray="4 3"/>
+    <line x1="360" y1="30" x2="360" y2="240" stroke="#e2e8f0" stroke-width="0.5" stroke-dasharray="4 3"/>
+    <!-- Reference lines -->
+    <line x1="60" y1="20" x2="460" y2="20" stroke="#d1d5db" stroke-width="0.5" stroke-dasharray="3 3"/>
+    <text x="42" y="24" font-size="10" fill="#94a3b8">1</text>
+    <line x1="60" y1="220" x2="460" y2="220" stroke="#d1d5db" stroke-width="0.5" stroke-dasharray="3 3"/>
+    <text x="42" y="224" font-size="10" fill="#94a3b8">0</text>
+    <text x="252" y="224" font-size="10" fill="#94a3b8">0</text>
+    <!-- Sigmoid curve (approximate with bezier) -->
+    <path d="M70,218 C140,218 180,218 190,170 C200,122 210,70 260,120 C310,170 320,122 330,70 C340,18 380,18 450,18"
+          fill="none" stroke="#2563eb" stroke-width="2.5"/>
+    <!-- Gradient saturation zones -->
+    <rect x="70" y="30" width="90" height="200" fill="#fee2e2" opacity="0.3" rx="4"/>
+    <rect x="380" y="30" width="80" height="200" fill="#fee2e2" opacity="0.3" rx="4"/>
+    <text x="115" y="250" font-size="10" fill="#ef4444" text-anchor="middle">饱和区</text>
+    <text x="420" y="250" font-size="10" fill="#ef4444" text-anchor="middle">饱和区</text>
+    <!-- Active zone -->
+    <rect x="210" y="30" width="100" height="200" fill="#d1fae5" opacity="0.3" rx="4"/>
+    <text x="260" y="250" font-size="10" fill="#10b981" text-anchor="middle">梯度活跃区</text>
+    <!-- Point at x=0 -->
+    <circle cx="260" cy="120" r="4" fill="#2563eb"/>
+    <text x="268" y="130" font-size="10" fill="#2563eb">(0, 0.5)</text>
+  </svg>
+  <div class="geo-caption">
+    📐 <strong>关键洞察</strong>：Sigmoid 在 $|x|>5$ 时梯度接近 0，导致深层网络中梯度消失。这是 ReLU 取代 Sigmoid 作为隐藏层激活函数的核心原因。
+  </div>
+</div>
+
+<hr style="margin:24px 0;border-color:#d6c8a8;">
+
+<h2 style="text-align:center;color:#065f46;">✅ 测试结论</h2>
+<p>以上 6 种公式可视化模式覆盖了课程复习中公式呈现的主要需求：</p>
+<ol>
+  <li><strong>公式解剖卡</strong> — 逐个符号解释，适合首次遇到的核心公式</li>
+  <li><strong>推导链路图</strong> — 横向流动，适合多步变换的公式</li>
+  <li><strong>视觉类比图</strong> — 左图右公式，适合有直觉对应关系的概念</li>
+  <li><strong>折叠逐步推导</strong> — 可展开/折叠，适合复杂推导过程</li>
+  <li><strong>参数快查表</strong> — 表格对比，适合含多个超参数的优化器/算法</li>
+  <li><strong>函数图像</strong> — SVG 曲线，适合激活函数/损失函数等数学函数</li>
+</ol>
+
+</body>
+</html>
