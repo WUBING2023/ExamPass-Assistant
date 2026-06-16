@@ -56,6 +56,28 @@ def _build_page(title, body_html, css_extra='', js_extra=''):
 
 import re as _re
 
+def _strip_full_document(html):
+    """If a note arrives as a *full* HTML document (some agents emit
+    <!DOCTYPE><html><head><style>…</head><body>…</body></html>, sometimes with
+    their own dark theme), keep only the <body> inner content and drop any
+    leaked <head>/<style>/<script>. Otherwise return as-is.
+
+    Without this, the note's own <style> overrides the page theme and the
+    two-column layout — the cause of the dark background + broken widths.
+    """
+    if not html:
+        return html
+    m = _re.search(r'<body[^>]*>(.*)</body>', html, _re.DOTALL | _re.IGNORECASE)
+    if m:
+        html = m.group(1)
+    html = _re.sub(r'<!DOCTYPE[^>]*>', '', html, flags=_re.IGNORECASE)
+    html = _re.sub(r'</?html[^>]*>', '', html, flags=_re.IGNORECASE)
+    html = _re.sub(r'<head[^>]*>.*?</head>', '', html, flags=_re.DOTALL | _re.IGNORECASE)
+    html = _re.sub(r'<style[^>]*>.*?</style>', '', html, flags=_re.DOTALL | _re.IGNORECASE)
+    html = _re.sub(r'<script[^>]*>.*?</script>', '', html, flags=_re.DOTALL | _re.IGNORECASE)
+    return html.strip()
+
+
 def _auto_toc_and_title(body_html, title):
     """Auto-inject H1 title + TOC block, and add anchor IDs to H2/H3 headings."""
     h1_html = '<h1>' + title + '</h1>\n'
@@ -66,8 +88,10 @@ def _auto_toc_and_title(body_html, title):
     def replace_heading(match):
         level = int(match.group(1))
         text = match.group(2).strip()
-        # Remove HTML tags from text for clean TOC entry
-        clean = _re.sub(r'<[^>]+>', '', text)
+        # Drop page chips entirely (text + tag) so the TOC stays clean,
+        # then strip remaining tags for the TOC entry.
+        clean = _re.sub(r'<span class="pg-chip".*?</span>', '', text, flags=_re.DOTALL)
+        clean = _re.sub(r'<[^>]+>', '', clean)
         # Generate anchor from a hash of the text (stable and safe)
         anchor = 's' + str(abs(hash(clean)))[:8]
         toc_items.append({'level': level, 'text': clean, 'anchor': anchor})
@@ -166,8 +190,11 @@ body { max-width: 2400px; width: 96vw; padding-left: 2vw; padding-right: 2vw; }
 /* Mobile: stack the rail below the notes */
 @media (max-width: 900px) {
   body { width: 100%; padding-left: 12px; padding-right: 12px; }
-  .kn-layout { flex-direction: column; gap: 16px; }
-  .kn-rail { position: static; flex: none; max-width: 100%; width: 100%; max-height: none; }
+  /* align-items:stretch is critical — in a COLUMN flex, flex-start would size
+     children to max-content (overflowing the viewport). */
+  .kn-layout { flex-direction: column; align-items: stretch; gap: 16px; }
+  .kn-main { flex: none; width: 100%; }
+  .kn-rail { position: static; flex: none; max-width: 100%; width: 100%; min-width: 0; max-height: none; }
 }
 """
 
@@ -290,7 +317,9 @@ def _auto_tag_headings(body_html, kcs, slides):
                     best = (label, anchors)
         if not best:
             return m.group(0)
-        marker = '<span data-slides="' + ','.join(best[1]) + '"></span>'
+        # One chip per heading — jump to the section's first slide; the rail
+        # holds the rest. (Avoids dozens of chips for wide page ranges.)
+        marker = '<span data-slides="' + best[1][0] + '"></span>'
         return '<h' + level + attrs + '>' + inner + marker + '</h' + level + '>'
 
     return _re.sub(r'<h([23])([^>]*)>(.*?)</h\1>', repl, body_html, flags=_re.DOTALL)
@@ -304,6 +333,7 @@ def save_knowledge_html(body_html, output_path, title, slides=None, kcs=None):
     auto-tagged with page chips that scroll the rail to the matching slide —
     so existing notes get the click-to-locate links without re-running agents.
     """
+    body_html = _strip_full_document(body_html)
     if slides and kcs:
         body_html = _auto_tag_headings(body_html, kcs, slides)
     body_html = _inject_heading_chips(body_html)

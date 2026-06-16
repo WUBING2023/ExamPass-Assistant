@@ -108,6 +108,22 @@ class TestSlideRailRendering:
         assert "__epaLightbox" in html
         assert "原始幻灯片文字" in html
 
+    def test_strips_full_document_note(self, temp_dir):
+        """A note that arrives as a full dark-themed HTML document must have its
+        <head>/<style>/<html> stripped so it can't override the page theme/layout."""
+        out = os.path.join(temp_dir, "full.html")
+        full_note = (
+            '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">'
+            '<style>:root{--bg:#0d1117}body{background:var(--bg);max-width:740px}</style>'
+            '</head><body><h2>归并排序</h2><p>正文内容</p></body></html>'
+        )
+        save_knowledge_html(full_note, out, "分治")
+        with open(out, encoding="utf-8") as f:
+            html = f.read()
+        assert "#0d1117" not in html          # dark theme stripped
+        assert "background: var(--bg)" not in html
+        assert "归并排序" in html and "正文内容" in html  # content kept
+
     def test_slide_img_reserves_space(self, temp_dir):
         """Slide images carry width/height attrs (no collapsed short boxes)
         and are not lazy-loaded (base64 is already inline)."""
