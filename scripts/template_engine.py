@@ -325,19 +325,17 @@ def _auto_tag_headings(body_html, kcs, slides):
     return _re.sub(r'<h([23])([^>]*)>(.*?)</h\1>', repl, body_html, flags=_re.DOTALL)
 
 
-def save_knowledge_html(body_html, output_path, title, slides=None, kcs=None):
-    """Render the knowledge list. If `slides` is provided, add a Notion-style
-    right-side slide rail (rendered PPT pages + collapsible original text).
+def _knowledge_body(body_html, title, slides=None, kcs=None, add_h1=True):
+    """Build the knowledge-list inner HTML + the CSS/JS it needs.
 
-    If `kcs` (the chapter's knowledge components) is also given, headings are
-    auto-tagged with page chips that scroll the rail to the matching slide —
-    so existing notes get the click-to-locate links without re-running agents.
+    Returns (body_html, css_extra, js_extra). Shared by save_knowledge_html and
+    save_combined_html so the slide-rail layout is identical in both.
     """
     body_html = _strip_full_document(body_html)
     if slides and kcs:
         body_html = _auto_tag_headings(body_html, kcs, slides)
     body_html = _inject_heading_chips(body_html)
-    body_html = _auto_toc_and_title(body_html, title)
+    body_html = _auto_toc_and_title(body_html, title if add_h1 else '')
 
     css_extra = ''
     js_extra = ''
@@ -350,7 +348,18 @@ def save_knowledge_html(body_html, output_path, title, slides=None, kcs=None):
         )
         css_extra = _SLIDE_CSS
         js_extra = _SLIDE_JS
+    return body_html, css_extra, js_extra
 
+
+def save_knowledge_html(body_html, output_path, title, slides=None, kcs=None):
+    """Render the knowledge list. If `slides` is provided, add a Notion-style
+    right-side slide rail (rendered PPT pages + collapsible original text).
+
+    If `kcs` (the chapter's knowledge components) is also given, headings are
+    auto-tagged with page chips that scroll the rail to the matching slide —
+    so existing notes get the click-to-locate links without re-running agents.
+    """
+    body_html, css_extra, js_extra = _knowledge_body(body_html, title, slides, kcs)
     html = _build_page(title, body_html, css_extra=css_extra, js_extra=js_extra)
     out_dir = os.path.dirname(output_path)
     if out_dir:
@@ -388,13 +397,9 @@ def save_graph_html(tree_json: dict, output_path: str, title: str):
 
 # ─── Interactive test page ──────────────────────────────────────────
 
-def save_test(questions, output_path, title, subtitle='', duration_minutes=30):
-    """Generate an interactive test page.
-
-    questions: list of {type, points, question, options, answer, explanation, pitfall}
-    subtitle: optional custom subtitle (overrides auto-generated duration subtitle)
-    duration_minutes: used in auto-generated subtitle if subtitle is empty
-    """
+def _test_body_and_js(questions, title, subtitle='', duration_minutes=30, add_h1=True):
+    """Build the interactive-test inner HTML + its JS. Shared by save_test and
+    save_combined_html. Returns (body_html, js_extra)."""
     questions_json = json.dumps(questions, ensure_ascii=False)
     labels = json.loads(_read('test_labels.json'))
     labels_json = json.dumps(labels, ensure_ascii=False)
@@ -404,23 +409,97 @@ def save_test(questions, output_path, title, subtitle='', duration_minutes=30):
     js = js.replace('__LABELS_PLACEHOLDER__', labels_json)
     js = '<script>\n' + js + '\n</script>'
 
-    # Subtitle
     if subtitle:
         sub_html = '<p style="text-align:center;color:var(--ink-light);font-size:0.95em">' + subtitle + '</p>'
     else:
         sub_html = '<p style="text-align:center;color:var(--ink-light);font-size:0.95em">' + labels['duration_prefix'] + str(duration_minutes) + labels['duration_suffix'] + '</p>'
 
-    body = '\n'.join([
-        '<h1>' + title + '</h1>',
+    rows = []
+    if add_h1:
+        rows.append('<h1>' + title + '</h1>')
+    rows += [
         '<h2 style="text-align:center">' + labels['page_title'] + '</h2>',
         sub_html,
         '',
         '<div id="score-box"><div class="score-num" id="score-num">0</div><div class="score-label">' + labels['score_label'] + '</div></div>',
         '<div id="questions-container"></div>',
         '<div class="grading-bar no-print"><button onclick="gradeAll()" id="grade-btn">' + labels['grade_button'] + '</button></div>',
-    ])
+    ]
+    return '\n'.join(rows), js
 
+
+def save_test(questions, output_path, title, subtitle='', duration_minutes=30):
+    """Generate an interactive test page.
+
+    questions: list of {type, points, question, options, answer, explanation, pitfall}
+    subtitle: optional custom subtitle (overrides auto-generated duration subtitle)
+    duration_minutes: used in auto-generated subtitle if subtitle is empty
+    """
+    body, js = _test_body_and_js(questions, title, subtitle, duration_minutes)
     html = _build_page(title, body, css_extra=_read('test.css'), js_extra=js)
+    out_dir = os.path.dirname(output_path)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.write(html)
+
+
+# ─── Combined page: knowledge list + test in one file with top tabs ──
+
+_TAB_CSS = """
+/* ── Combined page: top tab bar (清单 | 题目) ── */
+#epa-tabs { display: flex; gap: 0; justify-content: center; margin: 6px auto 22px;
+  max-width: 520px; border: 1px solid var(--divider); border-radius: 10px; overflow: hidden; }
+#epa-tabs .tab-btn { flex: 1; padding: 10px 18px; cursor: pointer; border: none;
+  background: var(--paper-dark); color: var(--ink-light); font-size: 1.02em; font-weight: 600;
+  font-family: inherit; transition: background .15s, color .15s; }
+#epa-tabs .tab-btn + .tab-btn { border-left: 1px solid var(--divider); }
+#epa-tabs .tab-btn.active { background: var(--accent); color: #fff; }
+#epa-tabs .tab-btn:not(.active):hover { background: #efe7d3; color: var(--ink); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+/* keep the test readable/centered even though the body is wide for the rail */
+#panel-test { max-width: 980px; margin: 0 auto; }
+@media print { #epa-tabs { display: none; } .tab-panel { display: block !important; } }
+"""
+
+_TAB_JS = """<script>
+document.addEventListener('click', function(e){
+  var btn = e.target.closest('#epa-tabs .tab-btn'); if(!btn) return;
+  var tab = btn.getAttribute('data-tab');
+  document.querySelectorAll('#epa-tabs .tab-btn').forEach(function(b){ b.classList.toggle('active', b===btn); });
+  document.querySelectorAll('.tab-panel').forEach(function(p){
+    p.classList.toggle('active', p.id === 'panel-' + tab); });
+  if(window.__epaFitFormulas) setTimeout(window.__epaFitFormulas, 50);
+  window.scrollTo(0, 0);
+});
+</script>"""
+
+
+def save_combined_html(body_html, questions, output_path, title,
+                       slides=None, kcs=None, subtitle='', duration_minutes=30):
+    """One page holding both the knowledge list and the test, switched by top
+    tabs (📖 知识清单 | 📝 章节测试). Reuses the slide rail + quiz engines."""
+    kn_body, kn_css, kn_js = _knowledge_body(body_html, title, slides, kcs, add_h1=False)
+    test_body, test_js = _test_body_and_js(questions, title, subtitle, duration_minutes, add_h1=False)
+
+    body = (
+        '<h1>' + title + '</h1>'
+        '<div id="epa-tabs" class="no-print">'
+        '<button class="tab-btn active" data-tab="kn">📖 知识清单</button>'
+        '<button class="tab-btn" data-tab="test">📝 章节测试</button>'
+        '</div>'
+        '<div id="panel-kn" class="tab-panel active">' + kn_body + '</div>'
+        '<div id="panel-test" class="tab-panel">' + test_body + '</div>'
+    )
+
+    css_extra = _read('test.css') + '\n' + kn_css + '\n' + _TAB_CSS
+    js_extra = kn_js + '\n' + test_js + '\n' + _TAB_JS
+
+    # Expose the formula-fit helper globally so tab-switch can re-run it.
+    js_extra = js_extra.replace('function __epaFitFormulas(', 'window.__epaFitFormulas = function __epaFitFormulas(')
+
+    html = _build_page(title, body, css_extra=css_extra, js_extra=js_extra)
     out_dir = os.path.dirname(output_path)
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)

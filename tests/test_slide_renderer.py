@@ -108,6 +108,22 @@ class TestSlideRailRendering:
         assert "__epaLightbox" in html
         assert "原始幻灯片文字" in html
 
+    def test_combined_page_has_tabs(self, temp_dir):
+        """Combined page holds both knowledge + test in tabbed panels."""
+        from template_engine import save_combined_html
+        out = os.path.join(temp_dir, "combined.html")
+        questions = [{"type": "choice", "points": 2, "question": "Q1?",
+                      "options": ["A", "B", "C", "D"], "answer": 0, "explanation": "e"}]
+        save_combined_html("<h2>知识点</h2><p>讲解</p>", questions, out, "测试章")
+        with open(out, encoding="utf-8") as f:
+            html = f.read()
+        assert 'id="epa-tabs"' in html
+        assert 'data-tab="kn"' in html and 'data-tab="test"' in html
+        assert 'id="panel-kn"' in html and 'id="panel-test"' in html
+        assert "知识清单" in html and "章节测试" in html
+        assert "知识点" in html  # knowledge content present
+        assert "questions-container" in html  # test engine present
+
     def test_strips_full_document_note(self, temp_dir):
         """A note that arrives as a full dark-themed HTML document must have its
         <head>/<style>/<html> stripped so it can't override the page theme/layout."""
