@@ -128,11 +128,11 @@ _SLIDE_CSS = """
 /* Override base.css body max-width (860px); fill the viewport edge-to-edge,
    capped only on ultra-wide screens for readability. */
 body { max-width: 2400px; width: 96vw; padding-left: 2vw; padding-right: 2vw; }
-.kn-layout { display: flex; gap: 40px; align-items: flex-start; width: 100%; margin: 0 auto; }
-.kn-main { flex: 1 1 56%; min-width: 0; overflow-x: clip; }
+.kn-layout { display: flex; gap: 36px; align-items: flex-start; width: 100%; margin: 0 auto; }
+.kn-main { flex: 1 1 auto; min-width: 0; overflow-x: clip; }
 .kn-main mjx-container[display="true"] { max-width: 100%; overflow-x: auto; overflow-y: hidden; }
-.kn-rail { flex: 1 1 44%; max-width: 920px; position: sticky; top: 12px; align-self: flex-start;
-  max-height: calc(100vh - 30px); overflow-y: auto; padding-right: 4px; }
+.kn-rail { flex: 0 0 32%; max-width: 520px; min-width: 300px; position: sticky; top: 12px;
+  align-self: flex-start; max-height: calc(100vh - 30px); overflow-y: auto; padding-right: 4px; }
 .kn-rail-title { font-weight: 700; color: var(--ink-light); font-size: 0.9em; margin-bottom: 10px;
   padding-bottom: 6px; border-bottom: 1px solid var(--divider); }
 .slide-card { border: 1px solid var(--card-border); border-radius: var(--radius);
@@ -186,6 +186,25 @@ document.addEventListener('click', function(e){
   if(card){ card.scrollIntoView({behavior:'smooth', block:'center'});
     card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash'); }
 });
+// Shrink any display formula too wide for its column so it stays fully visible.
+function __epaFitFormulas(){
+  var list = document.querySelectorAll('.kn-main mjx-container[display="true"]');
+  for(var i=0;i<list.length;i++){
+    var m = list[i], parent = m.parentElement; if(!parent) continue;
+    m.style.fontSize=''; // reset to measure natural width
+    var avail = parent.clientWidth, w = m.scrollWidth;
+    if(avail>0 && w>avail){ m.style.fontSize=(avail/w*0.97*100).toFixed(1)+'%'; }
+  }
+}
+function __epaScheduleFit(){
+  if(window.MathJax && MathJax.startup && MathJax.startup.promise){
+    MathJax.startup.promise.then(__epaFitFormulas);
+  } else { setTimeout(__epaFitFormulas, 900); }
+}
+if(document.readyState!=='loading'){ __epaScheduleFit(); }
+else { document.addEventListener('DOMContentLoaded', __epaScheduleFit); }
+var __epaFitT=null;
+window.addEventListener('resize', function(){ clearTimeout(__epaFitT); __epaFitT=setTimeout(__epaFitFormulas,200); });
 </script>"""
 
 
