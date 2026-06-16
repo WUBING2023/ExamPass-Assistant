@@ -88,9 +88,126 @@ def _auto_toc_and_title(body_html, title):
     return h1_html + toc_html + body_html
 
 
-def save_knowledge_html(body_html, output_path, title):
+def _build_slide_rail(slides):
+    """Build the right-side Notion-style slide rail HTML from slide data.
+
+    slides: list of {"page": str, "label": str, "img": data_uri, "text": str}
+    Each card shows the rendered slide image + a collapsible original-text block.
+    """
+    cards = []
+    for s in slides:
+        page = s.get('page', '')
+        label = s.get('label', f"第{page}页")
+        img = s.get('img', '')
+        text = (s.get('text') or '').strip()
+        text_html = ''
+        if text:
+            # Escape minimal HTML, preserve line breaks
+            safe = (text.replace('&', '&amp;').replace('<', '&lt;')
+                        .replace('>', '&gt;').replace('\n', '<br>'))
+            text_html = (
+                '<details class="slide-text"><summary>原文文字</summary>'
+                '<div class="slide-text-body">' + safe + '</div></details>'
+            )
+        cards.append(
+            '<div class="slide-card" id="slide-p' + str(page) + '" data-page="' + str(page) + '">'
+            '<div class="slide-card-label">' + label + '</div>'
+            '<img class="slide-img" src="' + img + '" alt="' + label + '" loading="lazy" '
+            'onclick="window.__epaLightbox&&window.__epaLightbox(this.src)">'
+            + text_html +
+            '</div>'
+        )
+    return '\n'.join(cards)
+
+
+_SLIDE_CSS = """
+/* ── Notion-style slide cross-reference layout ── */
+.kn-layout { display: flex; gap: 28px; align-items: flex-start; max-width: 1480px; margin: 0 auto; }
+.kn-main { flex: 1 1 60%; min-width: 0; }
+.kn-rail { flex: 0 0 38%; max-width: 560px; position: sticky; top: 12px; align-self: flex-start;
+  max-height: calc(100vh - 30px); overflow-y: auto; padding-right: 4px; }
+.kn-rail-title { font-weight: 700; color: var(--ink-light); font-size: 0.9em; margin-bottom: 10px;
+  padding-bottom: 6px; border-bottom: 1px solid var(--divider); }
+.slide-card { border: 1px solid var(--card-border); border-radius: var(--radius);
+  background: var(--card-bg); padding: 8px; margin-bottom: 14px; }
+.slide-card-label { font-size: 0.78em; color: var(--ink-light); margin-bottom: 6px; }
+.slide-img { width: 100%; border-radius: 4px; cursor: zoom-in; display: block;
+  border: 1px solid var(--divider); }
+.slide-text { margin-top: 6px; font-size: 0.85em; }
+.slide-text summary { cursor: pointer; color: var(--accent); user-select: none; }
+.slide-text-body { margin-top: 6px; color: var(--ink-light); line-height: 1.6;
+  max-height: 220px; overflow-y: auto; padding: 6px 8px; background: #fff;
+  border-radius: 4px; border: 1px solid var(--divider); }
+/* heading-side page chips */
+.pg-chip { display: inline-block; font-size: 0.72em; font-weight: 600; color: var(--accent);
+  background: #eff4ff; border: 1px solid #cfe0ff; border-radius: 10px; padding: 0 7px;
+  margin-left: 6px; cursor: pointer; vertical-align: middle; }
+.pg-chip:hover { background: #dbe8ff; }
+.slide-card.flash { animation: slideflash 1.2s ease; }
+@keyframes slideflash { 0%,100%{box-shadow:none;} 30%{box-shadow:0 0 0 3px var(--accent);} }
+/* lightbox */
+#epa-lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.82); display: none;
+  align-items: center; justify-content: center; z-index: 9999; cursor: zoom-out; }
+#epa-lightbox img { max-width: 94vw; max-height: 94vh; border-radius: 6px; }
+@media (max-width: 900px) {
+  .kn-layout { flex-direction: column; }
+  .kn-rail { position: static; flex: none; max-width: 100%; width: 100%; max-height: none; }
+}
+"""
+
+_SLIDE_JS = """<script>
+window.__epaLightbox = function(src){
+  var lb = document.getElementById('epa-lightbox');
+  if(!lb){ lb = document.createElement('div'); lb.id='epa-lightbox';
+    lb.innerHTML='<img>'; document.body.appendChild(lb);
+    lb.addEventListener('click', function(){ lb.style.display='none'; }); }
+  lb.querySelector('img').src = src; lb.style.display='flex';
+};
+document.addEventListener('click', function(e){
+  var chip = e.target.closest('.pg-chip'); if(!chip) return;
+  var pg = chip.getAttribute('data-page');
+  var card = document.getElementById('slide-p'+pg);
+  if(card){ card.scrollIntoView({behavior:'smooth', block:'center'});
+    card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash'); }
+});
+</script>"""
+
+
+def _inject_heading_chips(body_html):
+    """Turn heading-trailing <span data-slides="12,13"> markers into [页N] chips.
+
+    Notes agents may tag headings with data-slides; if absent this is a no-op.
+    """
+    def repl(m):
+        pages = m.group(1)
+        chips = ''
+        for p in pages.split(','):
+            p = p.strip()
+            if p:
+                chips += '<span class="pg-chip" data-page="' + p + '">页' + p + '</span>'
+        return chips
+    return _re.sub(r'<span\s+data-slides="([^"]*)"\s*></span>', repl, body_html)
+
+
+def save_knowledge_html(body_html, output_path, title, slides=None):
+    """Render the knowledge list. If `slides` is provided, add a Notion-style
+    right-side slide rail (rendered PPT pages + collapsible original text)."""
+    body_html = _inject_heading_chips(body_html)
     body_html = _auto_toc_and_title(body_html, title)
-    html = _build_page(title, body_html)
+
+    css_extra = ''
+    js_extra = ''
+    if slides:
+        rail = _build_slide_rail(slides)
+        body_html = (
+            '<div class="kn-layout"><div class="kn-main">' + body_html + '</div>'
+            '<aside class="kn-rail"><div class="kn-rail-title">📑 原始幻灯片对照</div>'
+            + rail + '</aside></div>'
+        )
+        css_extra = _SLIDE_CSS
+        js_extra = _SLIDE_JS
+
+    html = _build_page(title, body_html, css_extra=css_extra, js_extra=js_extra)
     out_dir = os.path.dirname(output_path)
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)

@@ -49,6 +49,33 @@ python scripts/run_exampass.py <目标目录>
 **Phase 4 · 渲染**（原 Phase 6）
 按骨架顺序拼接所有 `notes/*.html` 与 `questions/*.json`，调模板引擎渲染知识清单 HTML + 章节测试 HTML，并保存 `knowledge_skeleton.json`。浏览器打开。
 
+**原始 PPT 对照（可选）**：渲染知识清单时可附带「Notion 风右侧幻灯片栏」——把整页幻灯片渲染图 + 该页原文贴在笔记右边，方便对照防漏。由 `--ppt` 档位控制，默认 `key`：
+
+| 档位 | 行为 |
+|------|------|
+| `--ppt full` | 渲染章节全部页，右栏放整本 |
+| `--ppt key`（默认） | 只放 `source_refs` 里被 must/key 知识组件引用的页 |
+| `--ppt none` | 不放幻灯片，纯笔记单栏 |
+
+渲染代码：
+```python
+import json, os
+from scripts.slide_renderer import build_chapter_slides
+from scripts.template_engine import save_knowledge_html
+
+with open('.epa_work/knowledge_skeleton.json', encoding='utf-8') as f:
+    skeleton = json.load(f)
+
+# 该章的原始 PDF 路径列表（按文件名排序）
+pdf_paths = [...]
+slides_dir = '.epa_work/chapters/<章名>/_slides'
+slides = build_chapter_slides(pdf_paths, slides_dir, density='key',
+                              skeleton=skeleton, chapter_label='<章名>')
+save_knowledge_html(note_html, 'EPA/<章名>-知识清单.html', '<章名>', slides=slides)
+```
+
+幻灯片图 base64 内嵌（HTML 自包含可分享）；整页渲染走 `slide_renderer.render_pdf_pages()`（`page.get_pixmap()`），与 `image_extractor`（抽嵌入插图）不同。标题旁 `[页N]` 小链接由笔记 Agent 在标题末尾打的 `<span data-slides="...">` 标记自动生成，点击滚动到右栏对应幻灯片；点幻灯片图弹灯箱。`full` 档对页数多的章 HTML 会较大（每页约 25-40KB），按需选 `key`。
+
 > 写作规范（kp/exp 双色、四色标签、blockquote 易错、公式、题型按学科选）沿用下方「内容质量要求」与「题目编写规范」——它们与各卡片的硬规则同源。
 
 ---
