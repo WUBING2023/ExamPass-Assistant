@@ -125,8 +125,10 @@ _SLIDE_CSS = """
 /* Override base.css body max-width (860px); fill the viewport edge-to-edge,
    capped only on ultra-wide screens for readability. */
 body { max-width: 2400px; width: 96vw; padding-left: 2vw; padding-right: 2vw; }
-.kn-layout { display: flex; gap: 40px; align-items: flex-start; width: 100%; margin: 0 auto; }
-.kn-main { flex: 1 1 56%; min-width: 0; }
+.kn-layout { display: flex; gap: 40px; align-items: flex-start; width: 100%; margin: 0 auto;
+  overflow-x: hidden; }
+.kn-main { flex: 1 1 56%; min-width: 0; overflow-x: hidden; }
+.kn-main mjx-container[display="true"] { max-width: 100%; overflow-x: auto; overflow-y: hidden; }
 .kn-rail { flex: 1 1 44%; max-width: 920px; position: sticky; top: 12px; align-self: flex-start;
   max-height: calc(100vh - 30px); overflow-y: auto; padding-right: 4px; }
 .kn-rail-title { font-weight: 700; color: var(--ink-light); font-size: 0.9em; margin-bottom: 10px;
