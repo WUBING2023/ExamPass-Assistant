@@ -1,12 +1,8 @@
-# ExamPass Assistant <sup>v1.0</sup>
+# ExamPass Assistant <sup>v0.1</sup>
 
 **Turn lecture slides into exam-ready study materials.**
 
 > [中文](./README_CN.md)
-
-> 📌 **Finals-season note · 期末季说明**
-> One update is planned for **mid-June**. I'm using EPA for my own finals right now and will share real usage notes along the way — but I won't have time to answer questions for a while, so issues / DMs may be delayed. Thanks for understanding 🙏
-> 6 月中旬会有一次更新。作者正用 EPA 备考自己的期末，会同步分享实测体验；但近期没精力一一答疑，Issue / 私信会延迟回复，感谢理解 🙏
 
 ---
 
@@ -15,9 +11,7 @@
 An AI-powered exam prep assistant. Drop in lecture PPTs, Word handouts, or PDF readings — it generates:
 
 - **Knowledge Guides** — structured review notes with MathJax formulas, dual-color highlighting (key points in bold black, explanations in lighter gray), priority tags (must-know / key / frequent / info), and auto-generated table of contents
-- **Interactive Chapter Quizzes** — click to answer, one-click grading, per-question correct/incorrect badges, detailed explanations, and common mistake warnings. Supports 9 question types including calc and code — automatically chosen by subject
-- **Knowledge Graph** — interactive left-root/right-leaf tree layout with dependency dashed lines, hub-concept stars, hover tooltips, persistent inline note cards (text + paste images), search, and zoom
-- **Mock Final Exam** — full exam paper with answer key, blueprint scoring exactly 100 points, chapter coverage, difficulty gradient, and interactive answer sheet
+- **Interactive Quizzes** — click to answer, one-click grading, per-question correct/incorrect badges, detailed explanations, and common mistake warnings
 
 Open in any browser. Ctrl+P to print as PDF. MathJax renders formulas perfectly.
 
@@ -39,37 +33,16 @@ cd ExamPass-Assistant
 pip install -r requirements.txt
 ```
 
-### Commands
+### Usage
 
-| Command | Description |
-|---------|-------------|
-| `/exampass <dir>` | **Multi-agent deep pipeline** — skeleton → parallel notes & questions → parallel review & solve → targeted revision → render |
-| `/exampass fast <dir>` | **Single-agent fast mode** — skip sub-agent orchestration, produce the same outputs faster |
-| `/exampass graph <dir>` | **Knowledge graph** — interactive left-right tree with dependency edges, hub stars, inline note cards, search & zoom |
-| `/exampass final <dir>` | **Mock final exam** — interactive difficulty/duration/preferences, web-referenced blueprint (100 pts), two-pass solver verification, answer key |
-| `/exampass update` | Pull latest features, fixes, and dependencies from GitHub |
+**Generate chapter materials** — run `/exampass` in any course directory. The skill scans subfolders, groups files by chapter, extracts all content, performs deep analysis, and outputs knowledge guides + interactive quizzes into each folder.
 
-### Multi-Agent Pipeline (default)
+**Keep up to date** — run `/exampass update` to pull the latest features and fixes from GitHub.
 
-The default `/exampass` command orchestrates 5 specialized sub-agents:
-
-| Phase | Agent | Output |
-|-------|-------|--------|
-| 0. Extract | `run_exampass.py` | `_extraction_bundle.json` |
-| 1. Skeleton | `skeleton-agent` | `knowledge_skeleton.json` (chapter → KC DAG) + per-chapter slices |
-| 2. Create | `notes-agent` + `item-agent` (parallel per chapter) | `notes/chN.html` + `questions/chN.json` |
-| 3. Review | `reviewer-agent` + `solver-agent` (two-pass) | `reviews/chN.json` + diagnostic labels |
-| 4. Feedback | orchestrator aggregates critical/important issues | `feedback/chN.json` |
-| 5. Revise | targeted re-run of affected chapters only | revised notes & questions |
-| 6. Render | `template_engine` | knowledge list HTML + chapter test HTML |
-
-All intermediate artifacts land in `.epa_work/`. The orchestrator (main Claude) only schedules — content is produced by sub-agents following agent cards in `agents/`.
-
-### Use in Your Own Code
+**Use in your own code**:
 
 ```python
-from scripts.template_engine import save_knowledge_html, save_test, save_graph_html
-from scripts.knowledge_graph import skeleton_to_graph_tree
+from scripts.template_engine import save_knowledge_html, save_test
 
 # Knowledge guide — pass HTML body directly (engine adds H1 + TOC)
 body = '<h2>1. Sequence Modeling Basics</h2>\n<h3>1.1 What is Sequence Data</h3>\n<p>...</p>'
@@ -86,37 +59,40 @@ questions = [
      "pitfall": "Don't confuse language models with translation systems."},
 ]
 save_test(questions, 'quiz.html', 'Chapter 15', '100 points', duration_minutes=30)
-
-# Knowledge graph — convert skeleton to interactive DAG visualization
-import json
-with open('knowledge_skeleton.json') as f:
-    skeleton = json.load(f)
-tree = skeleton_to_graph_tree(skeleton)
-save_graph_html(tree, 'graph.html', tree['title'])
 ```
+
+### Skills
+
+| Command | Description |
+|---------|-------------|
+| `/exampass` | Generate knowledge guides and interactive chapter quizzes |
+| `/exampass update` | Pull latest features, fixes, and dependencies |
+| `/exampass-final` | Generate a full mock final exam with answer key |
+
+### How It Works
+
+1. **Scan & Group** — recursively finds all PPTX/DOCX/PDF files, groups by parent folder
+2. **Extract** — pulls text, tables, and embedded images from each file
+3. **Analyze** — Claude deeply reads the content, identifies concepts, motivations, and logical connections
+4. **Generate** — produces styled HTML with dual-color highlighting, MathJax formulas, and interactive quiz logic
 
 ### Project Structure
 
 ```
 EPA/
-├── SKILL.md                    # /exampass entry point (command routing)
-├── agents/                     # Sub-agent cards (methodology + prompt)
-│   ├── skeleton-agent.md       # Knowledge architect — builds chapter→KC DAG
-│   ├── notes-agent.md          # Note writer — deep-learning mode narratives
-│   ├── item-agent.md           # Question writer — subject-aware question types
-│   ├── reviewer-agent.md       # Content reviewer — correctness & completeness
-│   └── solver-agent.md         # Exam solver — two-pass verification
+├── SKILL.md                    # /exampass entry point
+├── exampass-update.md           # /exampass-update entry point
+├── exampass-final.md           # /exampass-final entry point
 ├── scripts/                    # Core Python modules
 │   ├── run_exampass.py         # Single-script extraction entry
 │   ├── scanner.py              # Recursive scanning & grouping
 │   ├── extractor.py            # Unified extraction dispatcher
-│   ├── extract_pptx.py         # PPTX extraction (text + tables + images)
+│   ├── extract_pptx.py         # PPTX extraction
 │   ├── extract_docx.py         # DOCX extraction
 │   ├── extract_pdf.py          # PDF extraction
 │   ├── image_extractor.py      # Image extraction for multimodal analysis
 │   ├── ocr_backend.py          # OCR fallback for non-multimodal models
-│   ├── template_engine.py      # HTML template engine (knowledge, test, graph)
-│   ├── knowledge_graph.py      # Skeleton-to-graph-tree converter
+│   ├── template_engine.py      # HTML template engine
 │   ├── html_generator.py       # Fast generator
 │   ├── generate_cached.py      # Cache-based instant re-runs
 │   ├── knowledge_analyzer.py   # Knowledge list prompt builder
@@ -124,16 +100,13 @@ EPA/
 │   ├── exam_generator.py       # Final exam prompt builder
 │   ├── web_research.py         # Web research
 │   └── utils.py                # Shared utilities
-├── templates/                  # CSS, JS & HTML templates
+├── templates/                  # CSS & HTML templates
 │   ├── base.css                # Shared styles (warm paper, dual-color)
 │   ├── test.css                # Interactive quiz styles
-│   ├── graph.css               # Knowledge graph styles (tree layout)
-│   ├── graph.js                # Graph renderer (D3 — dashed deps, tooltips, note cards)
 │   ├── page_template.html      # HTML page shell
-│   ├── graph_template.html     # Graph HTML shell
 │   ├── test_js_template.js     # Quiz JS template
 │   └── test_labels.json        # Chinese UI labels
-├── tests/                      # 123 test cases
+├── tests/                      # 102 test cases
 └── requirements.txt
 ```
 
