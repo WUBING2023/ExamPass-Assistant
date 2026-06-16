@@ -108,6 +108,27 @@ class TestSlideRailRendering:
         assert "__epaLightbox" in html
         assert "原始幻灯片文字" in html
 
+    def test_stray_lt_escaped_in_questions(self, temp_dir):
+        """A raw `<` in question text (e.g. low<high) must be escaped so it
+        can't open a phantom tag that swallows later questions; real tags kept."""
+        from template_engine import _escape_stray_lt, _sanitize_questions
+        # literal inequality escaped
+        assert _escape_stray_lt('low<high') == 'low&lt;high'
+        assert _escape_stray_lt('i<n and a<b') == 'i&lt;n and a&lt;b'
+        # real formatting tags preserved
+        assert _escape_stray_lt('<pre><code>x</code></pre>') == '<pre><code>x</code></pre>'
+        assert _escape_stray_lt('<strong>hi</strong>') == '<strong>hi</strong>'
+        assert _escape_stray_lt('a <br> b') == 'a <br> b'
+        # code with literal < inside a real tag: tag kept, inner < escaped
+        assert _escape_stray_lt('<code>if x<n:</code>') == '<code>if x&lt;n:</code>'
+        # sanitize_questions applies to all fields
+        qs = [{"type": "choice", "question": "改为 low<high 会怎样?",
+               "options": ["i<n", "正常"], "answer": 0, "explanation": "因为 a<b"}]
+        s = _sanitize_questions(qs)
+        assert "&lt;" in s[0]["question"]
+        assert "&lt;" in s[0]["options"][0]
+        assert "&lt;" in s[0]["explanation"]
+
     def test_combined_page_has_tabs(self, temp_dir):
         """Combined page holds both knowledge + test in tabbed panels."""
         from template_engine import save_combined_html

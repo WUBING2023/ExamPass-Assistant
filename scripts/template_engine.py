@@ -397,9 +397,58 @@ def save_graph_html(tree_json: dict, output_path: str, title: str):
 
 # ─── Interactive test page ──────────────────────────────────────────
 
+# A well-formed HTML tag: <tag …>, </tag>, or <br/> — no < or > inside it.
+_WELL_FORMED_TAG = _re.compile(r'</?[a-zA-Z][a-zA-Z0-9]*(?:\s[^<>]*)?/?>')
+
+
+def _escape_stray_lt(text):
+    """Escape every `<` that is NOT part of a well-formed HTML tag.
+
+    Question/explanation text legitimately mixes real formatting tags
+    (<pre>, <code>, <strong>…) with literal less-than signs from math/code
+    (low<high, i<n, a<b). A raw `<high` with no matching `>` is parsed by the
+    browser as an unclosed tag that swallows every following question. Keeping
+    only complete `<tag…>` forms and escaping the rest is robust even when a
+    tag name collides with a variable (b, i, a), because the literal has no `>`.
+    """
+    if not isinstance(text, str):
+        return text
+    parts = []
+    last = 0
+    for m in _WELL_FORMED_TAG.finditer(text):
+        parts.append(text[last:m.start()].replace('<', '&lt;'))
+        parts.append(m.group(0))
+        last = m.end()
+    parts.append(text[last:].replace('<', '&lt;'))
+    return ''.join(parts)
+
+
+def _sanitize_questions(questions):
+    """Return a copy of the questions with stray `<` escaped in all rendered
+    string fields, so malformed inequalities can't break the page structure."""
+    out = []
+    for q in questions:
+        if not isinstance(q, dict):
+            out.append(q)
+            continue
+        q = dict(q)
+        for f in ('question', 'explanation', 'pitfall'):
+            if isinstance(q.get(f), str):
+                q[f] = _escape_stray_lt(q[f])
+        if isinstance(q.get('options'), list):
+            q['options'] = [_escape_stray_lt(o) if isinstance(o, str) else o for o in q['options']]
+        if isinstance(q.get('answer'), str):
+            q['answer'] = _escape_stray_lt(q['answer'])
+        elif isinstance(q.get('answer'), list):
+            q['answer'] = [_escape_stray_lt(a) if isinstance(a, str) else a for a in q['answer']]
+        out.append(q)
+    return out
+
+
 def _test_body_and_js(questions, title, subtitle='', duration_minutes=30, add_h1=True):
     """Build the interactive-test inner HTML + its JS. Shared by save_test and
     save_combined_html. Returns (body_html, js_extra)."""
+    questions = _sanitize_questions(questions)
     questions_json = json.dumps(questions, ensure_ascii=False)
     labels = json.loads(_read('test_labels.json'))
     labels_json = json.dumps(labels, ensure_ascii=False)
@@ -470,6 +519,14 @@ document.addEventListener('click', function(e){
   document.querySelectorAll('#epa-tabs .tab-btn').forEach(function(b){ b.classList.toggle('active', b===btn); });
   document.querySelectorAll('.tab-panel').forEach(function(p){
     p.classList.toggle('active', p.id === 'panel-' + tab); });
+  // The test panel is display:none on load, so build()'s MathJax typeset ran
+  // on hidden content (collapsing formula question cards to 0 height). Re-run
+  // build() the first time the panel is visible so it renders + typesets at the
+  // real size. Guarded so user answers aren't wiped on later switches.
+  if(tab === 'test' && !window.__epaTestBuilt){
+    window.__epaTestBuilt = true;
+    if(typeof build === 'function'){ try { build(); } catch(err){} }
+  }
   if(window.__epaFitFormulas) setTimeout(window.__epaFitFormulas, 50);
   window.scrollTo(0, 0);
 });
