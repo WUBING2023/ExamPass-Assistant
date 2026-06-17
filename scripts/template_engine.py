@@ -226,6 +226,13 @@ document.addEventListener('click', function(e){
   var chip = e.target.closest('.pg-chip'); if(!chip) return;
   var pg = chip.getAttribute('data-page');
   var card = document.getElementById('slide-p'+pg);
+  if(!card){
+    // Fallback: notes may use "pdf-ref:pageN" format; extract trailing page number
+    var m = pg.match(/(\\d+)\\s*$/);
+    if(m){ var pgNum=m[1];
+      card = document.querySelector('.slide-card[data-page$="-'+pgNum+'"]') ||
+             document.querySelector('.slide-card[data-page="'+pgNum+'"]'); }
+  }
   if(card){ card.scrollIntoView({behavior:'smooth', block:'center'});
     card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash'); }
 });

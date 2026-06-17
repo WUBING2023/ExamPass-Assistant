@@ -86,6 +86,8 @@ pre {
 pre code {
   background: none; color: inherit; padding: 0; font-size: 1em; border-radius: 0;
 }
+/* kp/exp spans inside <pre> must inherit the light code color, not their own dark color */
+pre .kp, pre .exp { color: inherit; }
 
 /* ── Long display formulas: scroll inside their column, never overflow ── */
 mjx-container[display="true"] {
