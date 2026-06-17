@@ -164,6 +164,21 @@ def build_chapter_slides(pdf_paths, out_dir, density='key', skeleton=None,
     if density == 'key' and skeleton is not None:
         key_by_pdf = select_key_pages_by_pdf(skeleton, chapter_label)
 
+    slides = _render(pdf_paths, out_dir, density, key_by_pdf, max_width, quality)
+
+    # Robustness: if 'key' density produced NO slides (e.g. skeleton source_refs
+    # hallucinated page numbers beyond the PDF, or didn't map to any real page),
+    # fall back to rendering every page — better a full rail than an empty one.
+    if density == 'key' and not slides and any(
+        os.path.exists(p) and p.lower().endswith('.pdf') for p in pdf_paths
+    ):
+        slides = _render(pdf_paths, out_dir, 'full', {}, max_width, quality)
+
+    return slides
+
+
+def _render(pdf_paths, out_dir, density, key_by_pdf, max_width, quality):
+    """Render slides for the given density. Returns the slide list."""
     slides = []
     multi = len(pdf_paths) > 1
     for pdf_path in pdf_paths:
@@ -173,10 +188,8 @@ def build_chapter_slides(pdf_paths, out_dir, density='key', skeleton=None,
 
         only_pages = None
         if density == 'key':
-            # Pages keyed to this specific PDF, plus any unnamed ('') refs
             only_pages = set(key_by_pdf.get(base, set())) | set(key_by_pdf.get('', set()))
             if not only_pages:
-                # This PDF has no key refs — skip it under key density
                 continue
 
         texts = extract_page_texts(pdf_path)
@@ -184,16 +197,15 @@ def build_chapter_slides(pdf_paths, out_dir, density='key', skeleton=None,
         pdf_tag = os.path.splitext(base)[0]
         for r in rendered:
             page = r['page']
-            # Globally-unique anchor id when multiple PDFs share page numbers
             anchor = f"{pdf_tag}-{page}" if multi else str(page)
             uri, iw, ih = _img_to_data_uri(r['img_path'], max_width, quality)
             slides.append({
-                "page": anchor,          # anchor id used in the rail + chips
-                "pdf": base,             # source PDF basename (for KC→slide mapping)
-                "raw_page": page,        # 1-based page within that PDF
+                "page": anchor,
+                "pdf": base,
+                "raw_page": page,
                 "label": f"{pdf_tag} · 第{page}页" if multi else f"第{page}页",
                 "img": uri,
-                "iw": iw, "ih": ih,      # final image dimensions (reserve space)
+                "iw": iw, "ih": ih,
                 "text": texts.get(page, ''),
             })
     return slides

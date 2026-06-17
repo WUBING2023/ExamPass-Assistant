@@ -116,6 +116,13 @@ def main(target_dir):
             'file_count': len(files),
             'image_count': img_count,
             'text_length': text_len,
+            # Absolute paths to this chapter's source files (PDFs etc.), so the
+            # render step can build the PPT cross-reference rail without
+            # re-deriving the grouping. PDFs first (the rail renders PDF pages).
+            'source_files': sorted(
+                (os.path.abspath(f) for f in files),
+                key=lambda p: (os.path.splitext(p)[1].lower() != '.pdf', p),
+            ),
         }
         print()
 

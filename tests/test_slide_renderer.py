@@ -51,6 +51,32 @@ class TestRefsByPdf:
         assert result[""] == {12, 13, 14}
 
 
+class TestKeyDensityFallback:
+    def test_key_falls_back_to_full_when_no_real_pages(self, tmp_path):
+        """If 'key' density maps to no real PDF page (hallucinated refs), the
+        rail falls back to rendering all pages instead of coming up empty."""
+        import os
+        from slide_renderer import build_chapter_slides
+        # build a tiny 2-page PDF
+        try:
+            import fitz
+        except ImportError:
+            import pytest
+            pytest.skip("pymupdf not available")
+        pdf = str(tmp_path / "demo.pdf")
+        doc = fitz.open()
+        for _ in range(2):
+            doc.new_page()
+        doc.save(pdf); doc.close()
+        # skeleton references pages 999-1000 which don't exist
+        skeleton = {"chapters": [{"id": "ch1", "label": "demo", "kcs": [
+            {"id": "k1", "importance": "must", "source_refs": ["demo.pdf/999-1000"]}]}]}
+        slides = build_chapter_slides([pdf], str(tmp_path / "_slides"),
+                                      density='key', skeleton=skeleton, chapter_label='demo')
+        # key found no real page -> fell back to full (2 pages)
+        assert len(slides) == 2
+
+
 class TestKeyPageSelection:
     SKELETON = {
         "title": "算法",
