@@ -20,12 +20,12 @@ def main(target_dir, density='key'):
     epa_dir = os.path.join(target, 'EPA')
     os.makedirs(epa_dir, exist_ok=True)
 
-    with open(os.path.join(epa_work, 'chapter_manifest.json'), encoding='utf-8') as f:
+    with open(os.path.join(epa_work, 'chapter_manifest.json'), encoding='utf-8-sig') as f:
         manifest = json.load(f)
     skeleton_path = os.path.join(epa_work, 'knowledge_skeleton.json')
     skeleton = None
     if os.path.exists(skeleton_path):
-        with open(skeleton_path, encoding='utf-8') as f:
+        with open(skeleton_path, encoding='utf-8-sig') as f:
             skeleton = json.load(f)
 
     # Map skeleton chapter label -> kcs (for heading page chips)
@@ -47,7 +47,7 @@ def main(target_dir, density='key'):
             continue
 
         note = open(note_path, encoding='utf-8').read()
-        qd = json.load(open(q_path, encoding='utf-8'))
+        qd = json.load(open(q_path, encoding='utf-8-sig'))
         questions = qd.get('questions', qd if isinstance(qd, list) else [])
 
         # PDFs for this chapter come straight from the manifest.
@@ -101,5 +101,5 @@ if __name__ == '__main__':
     if len(sys.argv) < 2:
         print('Usage: python render_chapters.py <target_dir> [full|key|none]')
         sys.exit(1)
-    density = sys.argv[2] if len(sys.argv) > 2 else 'key'
+    density = sys.argv[2] if len(sys.argv) > 2 else 'full'
     main(sys.argv[1], density)

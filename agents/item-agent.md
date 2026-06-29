@@ -77,6 +77,8 @@
 }
 ```
 
+对于 tf（判断）题：`answer` 用布尔值 `true`/`false`，**禁止用数字 0/1**。`true` 表示命题正确（正确），`false` 表示命题错误（错误）。
+
 `kc_id` 让做题 Agent 能把"这题没答对"反馈回"哪个知识点笔记有洞"。
 
 ---
@@ -108,6 +110,7 @@
 
 题型按学科选（数学出 calc、编程出 code、文科不出 calc/code）。输出 JSON 每题含 kc_id / cognitive_level / difficulty / type / question / options / answer / explanation / pitfall。题干不加编号，选项不加 ABC 前缀。
 
+[tf答案-硬约束] tf 题的 `answer` 字段**只能用布尔值 `true` / `false`**，绝对禁止用数字 0/1。`true` = 命题正确（判断"正确"），`false` = 命题错误（判断"错误"）。出完每道 tf 题后立刻自问：「这个命题本身是真还是假？」——真命题写 `true`，假命题写 `false`，然后核对 explanation 是否一致。
 [JSON安全-硬约束] 字符串值内**绝对禁止**裸双引号 `"`，需要引号一律用「」；LaTeX 命令的 `\` 必须写成 `\\`（如 `\\frac` 不是 `\frac`）；数字字段不加引号。写完后自己用 json.loads() 验一遍——这是下游渲染能跑的前提。
 
 【分配的知识组件（含类型/重要度/依赖）】

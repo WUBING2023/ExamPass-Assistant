@@ -78,3 +78,70 @@
 }
 .grading-bar button:hover     { background: var(--accent-hover); }
 .grading-bar button:disabled  { background: #bbb; cursor: not-allowed; }
+
+/* ── Fill-in-blank inputs ── */
+.fill-input {
+  border: 1px solid var(--card-border); border-radius: 3px;
+  padding: 2px 8px; font-family: inherit; font-size: 0.95em;
+  background: #fefcf5; width: 140px; vertical-align: middle;
+  transition: border-color .12s;
+}
+.fill-input:focus { outline: none; border-color: var(--accent); }
+.fill-input.fill-ok { border-color: var(--correct); background: var(--correct-bg); }
+.fill-input.fill-no { border-color: var(--wrong); background: var(--wrong-bg); }
+/* stacked blanks (fill questions whose blank markers aren't in the text) */
+.fill-blank-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+.fill-blank-row .fill-input { flex: 1; min-width: 0; width: auto; }
+.fill-tag { font-weight: 600; font-size: 0.9em; color: var(--ink-light); white-space: nowrap; }
+
+/* ── Pasted image preview ── */
+.paste-img-wrap {
+  margin-top: 6px; position: relative; display: inline-block; max-width: 100%;
+}
+.paste-img-wrap img {
+  max-width: 100%; max-height: 240px; border-radius: 4px;
+  border: 1px solid var(--divider); display: block;
+}
+.paste-img-remove {
+  position: absolute; top: 3px; right: 3px; width: 20px; height: 20px;
+  background: rgba(0,0,0,0.55); color: #fff; border: none; border-radius: 50%;
+  cursor: pointer; font-size: 12px; line-height: 20px; text-align: center; padding: 0;
+}
+
+/* ── AI批改 save-for-grading button ── */
+.save-bar { text-align: center; margin: 10px 0 4px; }
+.save-bar button {
+  font-size: 0.95em; padding: 7px 22px; background: #7c5ccc;
+  color: #fff; border: none; border-radius: var(--radius);
+  cursor: pointer; font-weight: 600;
+}
+.save-bar button:hover { background: #6748b4; }
+
+/* ── Grade export modal ── */
+#epa-grade-modal {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.62);
+  z-index: 9998; align-items: center; justify-content: center;
+}
+#epa-grade-modal.open { display: flex; }
+.epa-grade-dialog {
+  background: #fff; border-radius: 10px; padding: 24px 28px; max-width: 560px;
+  width: 90vw; box-shadow: 0 8px 32px rgba(0,0,0,0.22);
+}
+.epa-grade-dialog h3 { margin: 0 0 10px; font-size: 1.1em; }
+.epa-grade-dialog p {
+  color: var(--ink-light); font-size: 0.93em; margin: 0 0 12px; line-height: 1.6;
+}
+.epa-grade-cmd {
+  background: #1e1e2e; color: #e0e0e0; border-radius: 6px; padding: 10px 14px;
+  font-family: "Consolas","Monaco","Courier New",monospace; font-size: 0.88em;
+  word-break: break-all; margin-bottom: 12px; user-select: all; white-space: pre-wrap;
+}
+.epa-grade-dialog-btns { display: flex; gap: 10px; justify-content: flex-end; }
+.epa-grade-dialog-btns button {
+  padding: 7px 18px; border-radius: 6px; border: none; cursor: pointer;
+  font-size: 0.93em; font-weight: 600;
+}
+.btn-copy { background: var(--accent); color: #fff; }
+.btn-copy:hover { background: var(--accent-hover); }
+.btn-close-modal { background: #e5e5e5; color: var(--ink); }
+.btn-close-modal:hover { background: #d5d5d5; }

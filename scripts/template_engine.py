@@ -489,13 +489,26 @@ def _escape_stray_lt(text):
 
 def _sanitize_questions(questions):
     """Return a copy of the questions with stray `<` escaped in all rendered
-    string fields, so malformed inequalities can't break the page structure."""
+    string fields, so malformed inequalities can't break the page structure.
+    Also normalizes tf answers: numeric 0/1 → boolean (0→false, 1→true),
+    string "0"/"1" → boolean, so the JS grading logic always sees consistent types."""
     out = []
     for q in questions:
         if not isinstance(q, dict):
             out.append(q)
             continue
         q = dict(q)
+        # Normalize tf answer to boolean BEFORE escaping
+        if q.get('type') == 'tf':
+            ans = q.get('answer')
+            if isinstance(ans, (int, float)):
+                q['answer'] = bool(ans)
+            elif isinstance(ans, str):
+                s = ans.strip().lower()
+                if s in ('0', 'false', '错误', '错', '否', 'no', 'n', 'f', '×', 'x'):
+                    q['answer'] = False
+                elif s in ('1', 'true', '正确', '对', '是', 'yes', 'y', 't', '√', '✓'):
+                    q['answer'] = True
         for f in ('question', 'explanation', 'pitfall'):
             if isinstance(q.get(f), str):
                 q[f] = _escape_stray_lt(q[f])
@@ -537,6 +550,18 @@ def _test_body_and_js(questions, title, subtitle='', duration_minutes=30, add_h1
         '<div id="score-box"><div class="score-num" id="score-num">0</div><div class="score-label">' + labels['score_label'] + '</div></div>',
         '<div id="questions-container"></div>',
         '<div class="grading-bar no-print"><button onclick="gradeAll()" id="grade-btn">' + labels['grade_button'] + '</button></div>',
+        '<div class="save-bar no-print"><button onclick="saveForGrading()">🤖 AI一键批改</button></div>',
+        '<div id="epa-grade-modal">'
+        '<div class="epa-grade-dialog">'
+        '<h3>📋 AI批改任务已生成</h3>'
+        '<p>答案已下载为 JSON 文件（通常在<strong>下载</strong>文件夹）。'
+        '将以下命令发送给 Claude Code EPA skill，AI 会自动批改并生成报告：</p>'
+        '<div class="epa-grade-cmd" id="epa-grade-cmd-text">/exampass grade "&lt;路径&gt;"</div>'
+        '<p style="font-size:0.85em;color:#999;margin:0 0 14px">将 &lt;路径&gt; 替换为刚下载的 JSON 文件的完整路径。</p>'
+        '<div class="epa-grade-dialog-btns">'
+        '<button class="btn-copy" id="epa-grade-copy-btn" onclick="__epaCopyGradeCmd()">复制命令</button>'
+        '<button class="btn-close-modal" onclick="__epaCloseGradeModal()">关闭</button>'
+        '</div></div></div>',
     ]
     return '\n'.join(rows), js
 
@@ -560,9 +585,14 @@ def save_test(questions, output_path, title, subtitle='', duration_minutes=30):
 # ─── Combined page: knowledge list + test in one file with top tabs ──
 
 _TAB_CSS = """
-/* ── Combined page: top tab bar (清单 | 题目) ── */
-#epa-tabs { display: flex; gap: 0; justify-content: center; margin: 6px auto 22px;
-  max-width: 520px; border: 1px solid var(--divider); border-radius: 10px; overflow: hidden; }
+/* ── Combined page: top tab bar (清单 | 题目) ──
+   Sticky so 清单/测试 switching stays reachable after scrolling. This replaces
+   the old floating FAB, which was pinned bottom-right and permanently covered
+   (and click-blocked) the bottom-right slide card of the PPT 对照 rail. */
+#epa-tabs { position: sticky; top: 4px; z-index: 1000;
+  display: flex; gap: 0; justify-content: center; margin: 6px auto 22px;
+  max-width: 520px; border: 1px solid var(--divider); border-radius: 10px; overflow: hidden;
+  background: var(--paper); box-shadow: 0 2px 10px rgba(0,0,0,0.10); }
 #epa-tabs .tab-btn { flex: 1; padding: 10px 18px; cursor: pointer; border: none;
   background: var(--paper-dark); color: var(--ink-light); font-size: 1.02em; font-weight: 600;
   font-family: inherit; transition: background .15s, color .15s; }
@@ -573,26 +603,35 @@ _TAB_CSS = """
 .tab-panel.active { display: block; }
 /* keep the test readable/centered even though the body is wide for the rail */
 #panel-test { max-width: 980px; margin: 0 auto; }
-@media print { #epa-tabs { display: none; } .tab-panel { display: block !important; } }
+/* When the tab bar is pinned at the top, drop the sticky slide rail below it so
+   the bar never covers the first slide card. `top` only affects the PINNED
+   position — initial layout still top-aligns the rail with the notes column. */
+.kn-rail { top: 60px; max-height: calc(100vh - 74px); }
+@media print { #epa-tabs { position: static; display: none; } .tab-panel { display: block !important; } }
 """
 
 _TAB_JS = """<script>
-document.addEventListener('click', function(e){
-  var btn = e.target.closest('#epa-tabs .tab-btn'); if(!btn) return;
-  var tab = btn.getAttribute('data-tab');
-  document.querySelectorAll('#epa-tabs .tab-btn').forEach(function(b){ b.classList.toggle('active', b===btn); });
+function __epaSwitch(tab) {
+  document.querySelectorAll('#epa-tabs .tab-btn').forEach(function(b){
+    b.classList.toggle('active', b.getAttribute('data-tab') === tab); });
   document.querySelectorAll('.tab-panel').forEach(function(p){
     p.classList.toggle('active', p.id === 'panel-' + tab); });
   // The test panel is display:none on load, so build()'s MathJax typeset ran
-  // on hidden content (collapsing formula question cards to 0 height). Re-run
-  // build() the first time the panel is visible so it renders + typesets at the
-  // real size. Guarded so user answers aren't wiped on later switches.
+  // on hidden content. Re-run build() the first time the panel is visible so
+  // it renders + typesets at the real size. Guarded so answers aren't wiped.
   if(tab === 'test' && !window.__epaTestBuilt){
     window.__epaTestBuilt = true;
     if(typeof build === 'function'){ try { build(); } catch(err){} }
+  } else if(tab === 'test' && window.MathJax && MathJax.typesetPromise){
+    var panel = document.getElementById('panel-test');
+    if(panel) MathJax.typesetPromise([panel]).catch(function(){});
   }
   if(window.__epaFitFormulas) setTimeout(window.__epaFitFormulas, 50);
   window.scrollTo(0, 0);
+}
+document.addEventListener('click', function(e){
+  var btn = e.target.closest('#epa-tabs .tab-btn'); if(!btn) return;
+  __epaSwitch(btn.getAttribute('data-tab'));
 });
 </script>"""
 
@@ -621,6 +660,224 @@ def save_combined_html(body_html, questions, output_path, title,
     js_extra = js_extra.replace('function __epaFitFormulas(', 'window.__epaFitFormulas = function __epaFitFormulas(')
 
     html = _build_page(title, body, css_extra=css_extra, js_extra=js_extra)
+    out_dir = os.path.dirname(output_path)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.write(html)
+
+
+# ─── Grade report page ───────────────────────────────────────────────
+
+_GRADE_REPORT_CSS = """
+body { font-family: 'PingFang SC','Noto Sans SC','Segoe UI',sans-serif;
+  max-width: 860px; margin: 0 auto; padding: 20px 24px 60px;
+  background: #faf8f3; color: #2d2a24; line-height: 1.7; }
+a { color: #6060d0; }
+.gr-header { text-align: center; padding: 20px 0 8px; border-bottom: 2px solid #e0d8c8; margin-bottom: 24px; }
+.gr-brand { font-size: 0.9em; color: #888; letter-spacing: 0.5px; }
+.gr-title { font-size: 1.6em; font-weight: 700; margin: 6px 0 4px; }
+.gr-meta { font-size: 0.88em; color: #777; }
+.gr-score-box { display: flex; gap: 16px; flex-wrap: wrap; margin: 20px 0 28px;
+  background: #fff; border-radius: 10px; padding: 16px 20px;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.07); border: 1px solid #e0d8c8; }
+.gr-score-item { flex: 1; min-width: 120px; text-align: center; }
+.gr-score-num { font-size: 2em; font-weight: 700; }
+.gr-score-num.total { color: #6060d0; }
+.gr-score-num.ok { color: #16a34a; }
+.gr-score-num.sub { color: #d97706; }
+.gr-score-label { font-size: 0.82em; color: #888; margin-top: 2px; }
+.gr-section { margin: 28px 0 10px; font-size: 1.12em; font-weight: 700;
+  border-left: 4px solid #6060d0; padding-left: 10px; }
+.gr-qcard { background: #fff; border: 1px solid #e0d8c8; border-radius: 8px;
+  padding: 12px 16px; margin: 10px 0; }
+.gr-qcard.gr-correct { border-left: 3px solid #16a34a; }
+.gr-qcard.gr-wrong { border-left: 3px solid #dc2626; }
+.gr-qcard.gr-partial { border-left: 3px solid #f59e0b; }
+.gr-qcard.gr-ref { border-left: 3px solid #6060d0; }
+.gr-qnum { font-weight: 700; font-size: 0.9em; color: #888; margin-bottom: 4px; }
+.gr-qtext { margin-bottom: 6px; }
+.gr-badge { display: inline-block; padding: 1px 8px; border-radius: 3px;
+  font-size: 0.8em; font-weight: 700; margin-right: 6px; }
+.badge-ok  { background: #dcfce7; color: #166534; }
+.badge-no  { background: #fee2e2; color: #991b1b; }
+.badge-par { background: #fef3c7; color: #92400e; }
+.badge-ref { background: #dbeafe; color: #1e40af; }
+.gr-answer { font-size: 0.9em; color: #555; margin: 4px 0; }
+.gr-comment { font-size: 0.9em; color: #444; margin: 4px 0; background: #f0f4ff;
+  border-radius: 4px; padding: 6px 10px; }
+.gr-explanation { font-size: 0.88em; color: #666; margin-top: 4px; }
+.gr-kc-table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.93em; }
+.gr-kc-table th { background: #f0ede0; padding: 7px 10px; text-align: left; }
+.gr-kc-table td { padding: 6px 10px; border-bottom: 1px solid #e8e0d0; }
+.gr-bar-wrap { background: #e8e0d0; border-radius: 6px; height: 8px; width: 120px;
+  display: inline-block; vertical-align: middle; overflow: hidden; }
+.gr-bar { border-radius: 6px; height: 8px; background: #6060d0; }
+.gr-bar.low  { background: #dc2626; }
+.gr-bar.mid  { background: #f59e0b; }
+.gr-bar.high { background: #16a34a; }
+.gr-footer { text-align: center; margin-top: 40px; padding-top: 16px;
+  border-top: 1px solid #e0d8c8; font-size: 0.82em; color: #999; }
+.gr-footer a { color: #6060d0; text-decoration: none; }
+"""
+
+_GRADE_REPORT_TEMPLATE = """<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>__TITLE__</title>
+__MATHJAX_CONFIG__
+__MATHJAX_SCRIPT__
+<style>
+__CSS__
+</style>
+</head>
+<body>
+__BODY__
+</body>
+</html>"""
+
+
+def save_grade_report_html(grade_data: dict, output_path: str):
+    """Generate a standalone HTML grade report.
+
+    grade_data keys:
+        chapter, submitted_at, graded_at, grade_count,
+        total_score, max_score, objective_score, objective_max,
+        subjective_score, subjective_max,
+        results (list of per-question dicts),
+        kc_mastery { kc_id: {label, score, max, pct} },
+        wrong_questions (list of result indices)
+
+    Each result: index, type, question, options, user_answer, correct_answer,
+                 score, max_points, verdict, comment, explanation, kc_id, images
+    """
+    chapter = grade_data.get('chapter', '章节测试')
+    submitted = grade_data.get('submitted_at', '')[:16].replace('T', ' ')
+    graded = grade_data.get('graded_at', '')[:16].replace('T', ' ')
+    grade_count = grade_data.get('grade_count', 1)
+    total = grade_data.get('total_score', 0)
+    max_s = grade_data.get('max_score', 100)
+    obj = grade_data.get('objective_score', 0)
+    obj_max = grade_data.get('objective_max', 0)
+    sub = grade_data.get('subjective_score', 0)
+    sub_max = grade_data.get('subjective_max', 0)
+    results = grade_data.get('results', [])
+    kc_mastery = grade_data.get('kc_mastery', {})
+
+    pct = round(total / max_s * 100) if max_s else 0
+    report_title = chapter + ' · 第' + str(grade_count) + '次批改'
+
+    def fmt_ans(q_type, ans, options=None):
+        if ans is None:
+            return '（未作答）'
+        if q_type == 'tf':
+            if isinstance(ans, int):
+                return '正确' if ans == 0 else '错误'
+            return '正确' if ans else '错误'
+        if q_type == 'choice' and options and isinstance(ans, int) and ans < len(options):
+            return chr(65 + ans) + '. ' + str(options[ans])
+        if q_type == 'multi' and isinstance(ans, list) and options:
+            return '  '.join(chr(65 + i) + '. ' + str(options[i]) for i in sorted(ans) if i < len(options))
+        if q_type == 'fill' and isinstance(ans, list):
+            return '  /  '.join(str(a) for a in ans)
+        return str(ans) if not isinstance(ans, list) else '  /  '.join(str(a) for a in ans)
+
+    def verdict_badge(v):
+        m = {
+            'correct':   ('<span class="gr-badge badge-ok">正确</span>', 'gr-correct'),
+            'partial':   ('<span class="gr-badge badge-par">部分正确</span>', 'gr-partial'),
+            'wrong':     ('<span class="gr-badge badge-no">错误</span>', 'gr-wrong'),
+            'reference': ('<span class="gr-badge badge-ref">参考答案</span>', 'gr-ref'),
+        }
+        return m.get(v, ('<span class="gr-badge badge-ref">-</span>', 'gr-ref'))
+
+    _SUBJ = {'short', 'calc', 'code', 'essay', 'comprehensive'}
+
+    q_rows = ''
+    for r in results:
+        badge_html, card_cls = verdict_badge(r.get('verdict', 'reference'))
+        opts = r.get('options')
+        user_str = _escape_stray_lt(fmt_ans(r['type'], r.get('user_answer'), opts))
+        user_ans_html = '<div class="gr-answer">你的答案：' + user_str + '</div>'
+        correct_ans_html = ''
+        if r.get('verdict') in ('wrong', 'partial') and r.get('correct_answer') is not None and r['type'] not in _SUBJ:
+            correct_ans_html = '<div class="gr-answer">正确答案：<strong>' + _escape_stray_lt(fmt_ans(r['type'], r.get('correct_answer'), opts)) + '</strong></div>'
+        comment_html = '<div class="gr-comment">💬 ' + r['comment'] + '</div>' if r.get('comment') else ''
+        exp_html = '<div class="gr-explanation">解析：' + r['explanation'] + '</div>' if r.get('explanation') else ''
+        imgs_html = ''.join(
+            '<img src="' + img + '" style="max-width:100%;max-height:200px;border-radius:4px;border:1px solid #e0d8c8;display:block;margin:4px 0">'
+            for img in (r.get('images') or [])
+        )
+        q_rows += (
+            '<div class="gr-qcard ' + card_cls + '">'
+            '<div class="gr-qnum">' + str(r['index'] + 1) + '. (' + str(r['max_points']) + '分) ' + badge_html +
+            '<span style="float:right;font-weight:700;color:#555">' + str(r.get('score', 0)) + ' / ' + str(r['max_points']) + '</span></div>'
+            '<div class="gr-qtext">' + r['question'] + '</div>'
+            + imgs_html + user_ans_html + correct_ans_html + comment_html + exp_html +
+            '</div>'
+        )
+
+    wrong_items = [r for r in results if r.get('verdict') in ('wrong', 'partial')]
+    wrong_html = ''
+    if wrong_items:
+        wrong_html = '<div class="gr-section">❌ 错题整理</div>'
+        for r in wrong_items:
+            badge_html, card_cls = verdict_badge(r.get('verdict', 'wrong'))
+            opts = r.get('options')
+            correct_ans = ''
+            if r.get('correct_answer') is not None and r['type'] not in _SUBJ:
+                correct_ans = '（正确答案：' + fmt_ans(r['type'], r.get('correct_answer'), opts) + '）'
+            comment = ('<div class="gr-comment">' + r['comment'] + '</div>') if r.get('comment') else ''
+            exp = ('<div class="gr-explanation">解析：' + r['explanation'] + '</div>') if r.get('explanation') else ''
+            wrong_html += (
+                '<div class="gr-qcard ' + card_cls + '">'
+                '<div class="gr-qnum">' + str(r['index'] + 1) + '. ' + badge_html + correct_ans + '</div>'
+                '<div class="gr-qtext">' + r['question'] + '</div>'
+                + comment + exp + '</div>'
+            )
+
+    kc_html = ''
+    if kc_mastery:
+        kc_html = '<div class="gr-section">📊 知识点掌握分析</div><table class="gr-kc-table"><thead><tr><th>知识点</th><th>得分</th><th>掌握度</th></tr></thead><tbody>'
+        for kc_id, info in kc_mastery.items():
+            p = info.get('pct', 0)
+            bar_cls = 'high' if p >= 80 else ('mid' if p >= 50 else 'low')
+            kc_html += (
+                '<tr><td>' + info.get('label', kc_id) + '</td>'
+                '<td>' + str(info.get('score', 0)) + ' / ' + str(info.get('max', 0)) + '</td>'
+                '<td><span class="gr-bar-wrap"><span class="gr-bar ' + bar_cls + '" style="width:' + str(max(0, min(100, int(p)))) + '%"></span></span> ' + str(p) + '%</td></tr>'
+            )
+        kc_html += '</tbody></table>'
+
+    body = (
+        '<div class="gr-header">'
+        '<div class="gr-brand">ExamPass Assistant &nbsp;·&nbsp; <a href="https://github.com/WUBING2023/ExamPass-Assistant" target="_blank">github.com/WUBING2023/ExamPass-Assistant</a></div>'
+        '<div class="gr-title">' + chapter + '</div>'
+        '<div class="gr-meta">第 ' + str(grade_count) + ' 次批改 &nbsp;·&nbsp; 提交：' + submitted + ' &nbsp;·&nbsp; 批改：' + graded + '</div>'
+        '</div>'
+        '<div class="gr-score-box">'
+        '<div class="gr-score-item"><div class="gr-score-num total">' + str(round(total, 1)) + '</div><div class="gr-score-label">总分 / ' + str(max_s) + '（' + str(pct) + '%）</div></div>'
+        + ('<div class="gr-score-item"><div class="gr-score-num ok">' + str(round(obj, 1)) + '</div><div class="gr-score-label">客观题 / ' + str(obj_max) + '</div></div>' if obj_max else '')
+        + ('<div class="gr-score-item"><div class="gr-score-num sub">' + str(round(sub, 1)) + '</div><div class="gr-score-label">主观题 / ' + str(sub_max) + '</div></div>' if sub_max else '')
+        + '</div>'
+        '<div class="gr-section">📝 逐题批改</div>'
+        + q_rows
+        + wrong_html
+        + kc_html
+        + '<div class="gr-footer">Generated by <a href="https://github.com/WUBING2023/ExamPass-Assistant" target="_blank">ExamPass Assistant</a></div>'
+    )
+
+    html = (
+        _GRADE_REPORT_TEMPLATE
+        .replace('__TITLE__', report_title)
+        .replace('__MATHJAX_CONFIG__', _MATHJAX_CONFIG)
+        .replace('__MATHJAX_SCRIPT__', _MATHJAX_SCRIPT)
+        .replace('__CSS__', _GRADE_REPORT_CSS)
+        .replace('__BODY__', body)
+    )
+
     out_dir = os.path.dirname(output_path)
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)

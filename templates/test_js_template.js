@@ -1,5 +1,6 @@
 var Q = __QUESTIONS_PLACEHOLDER__;
 var LABELS = __LABELS_PLACEHOLDER__;
+var __epaImages = {}; // { qid: [dataUrl, ...] } — pasted images per answer field
 
 // ─── Answer normalization (robust to how the JSON was authored) ──────
 // tf / choice answers may arrive as int index, boolean, letter ("A"),
@@ -8,11 +9,13 @@ var LABELS = __LABELS_PLACEHOLDER__;
 
 function tfAnswerIndex(ans) {
   // option 0 = true_label (正确), option 1 = false_label (错误)
+  // boolean: true → 正确(0), false → 错误(1)
   if (typeof ans === 'boolean') return ans ? 0 : 1;
-  if (typeof ans === 'number') return ans === 0 ? 0 : 1;
+  // number: treat as boolean (0=false→错误(1), non-zero=true→正确(0))
+  if (typeof ans === 'number') return ans ? 0 : 1;
   var s = ('' + ans).trim().toLowerCase();
-  var truthy = ['0', 't', 'true', '正确', '对', '是', 'yes', 'y', '√', '✓'];
-  var falsy  = ['1', 'f', 'false', '错误', '错', '否', 'no', 'n', '×', 'x'];
+  var truthy = ['t', 'true', '正确', '对', '是', 'yes', 'y', '√', '✓'];
+  var falsy  = ['f', 'false', '错误', '错', '否', 'no', 'n', '×', 'x'];
   if (truthy.indexOf(s) !== -1) return 0;
   if (falsy.indexOf(s) !== -1) return 1;
   return ans ? 0 : 1;
@@ -151,6 +154,7 @@ function build() {
   }
 
   container.innerHTML = h;
+  __epaPasteListeners(container);
 
   if (window.MathJax && MathJax.typesetPromise) {
     MathJax.typesetPromise([container]).catch(function (err) {
@@ -169,15 +173,17 @@ function renderFill(q, qid) {
     return inp;
   });
   if (k === 0) {
-    // No markers in text -> append boxes based on answer shape
+    // No markers in text -> append boxes based on answer shape, one per line
     var n = fillBlankAnswers(q.answer, 1).length;
     var ans = q.answer;
     if (Array.isArray(ans)) n = Array.isArray(ans[0]) ? ans.length : (ans.length || 1);
     if (n < 1) n = 1;
-    html += '<div class="fill-row">';
+    html += '<div>';
     for (var b = 0; b < n; b++) {
+      html += '<div class="fill-blank-row">';
       if (n > 1) html += '<span class="fill-tag">' + (b + 1) + '.</span>';
       html += '<input type="text" class="fill-input" id="fill-' + qid + '-' + b + '" autocomplete="off" spellcheck="false">';
+      html += '</div>';
     }
     html += '</div>';
   }
@@ -343,6 +349,155 @@ function multiAnswerText(keys, options) {
   return keys.sort(function (a, b) { return a - b; }).map(function (k) {
     return String.fromCharCode(65 + k) + '. ' + (options ? options[k] : '');
   }).join('  ');
+}
+
+// ─── Image paste support ─────────────────────────────────────────────
+
+function __epaPasteListeners(container) {
+  var tas = container.querySelectorAll('.q-textarea');
+  for (var i = 0; i < tas.length; i++) {
+    (function(ta) {
+      var qid = ta.id.replace('text-', '');
+      ta.addEventListener('paste', function(e) {
+        var items = e.clipboardData && e.clipboardData.items;
+        if (!items) return;
+        for (var j = 0; j < items.length; j++) {
+          if (items[j].type.indexOf('image') !== -1) {
+            e.preventDefault();
+            var file = items[j].getAsFile();
+            var reader = new FileReader();
+            reader.onload = (function(id, anchor) {
+              return function(ev) {
+                var dataUrl = ev.target.result;
+                if (!__epaImages[id]) __epaImages[id] = [];
+                __epaImages[id].push(dataUrl);
+
+                var wrap = document.createElement('div');
+                wrap.className = 'paste-img-wrap';
+                var img = document.createElement('img');
+                img.src = dataUrl;
+                var rm = document.createElement('button');
+                rm.className = 'paste-img-remove';
+                rm.title = '移除图片';
+                rm.textContent = '×';
+                rm.onclick = (function(url, w) {
+                  return function() {
+                    var idx = __epaImages[id].indexOf(url);
+                    if (idx !== -1) __epaImages[id].splice(idx, 1);
+                    w.parentNode.removeChild(w);
+                  };
+                })(dataUrl, wrap);
+                wrap.appendChild(img);
+                wrap.appendChild(rm);
+                anchor.parentNode.insertBefore(wrap, anchor.nextSibling);
+              };
+            })(qid, ta);
+            reader.readAsDataURL(file);
+          }
+        }
+      });
+    })(tas[i]);
+  }
+}
+
+// ─── Collect all user answers for export ─────────────────────────────
+
+function collectAnswers() {
+  var out = [];
+  for (var i = 0; i < Q.length; i++) {
+    var q = Q[i];
+    var qid = 'q' + i;
+    var userAnswer = null;
+
+    if (q.type === 'choice' || q.type === 'tf') {
+      var radio = document.querySelector('input[name="' + qid + '"]:checked');
+      userAnswer = radio ? parseInt(radio.value, 10) : null;
+    } else if (q.type === 'multi') {
+      var checked = document.querySelectorAll('input[name="' + qid + '"]:checked');
+      userAnswer = [];
+      for (var c = 0; c < checked.length; c++) {
+        userAnswer.push(parseInt(checked[c].value, 10));
+      }
+    } else if (q.type === 'fill') {
+      var nBlanks = fillBlankCount(q.question);
+      var blanks = fillBlankAnswers(q.answer, nBlanks);
+      userAnswer = [];
+      for (var b = 0; b < blanks.length; b++) {
+        var inp = document.getElementById('fill-' + qid + '-' + b);
+        userAnswer.push(inp ? inp.value : '');
+      }
+    } else {
+      var ta = document.getElementById('text-' + qid);
+      userAnswer = ta ? ta.value : '';
+    }
+
+    out.push({
+      index: i,
+      type: q.type,
+      question: q.question,
+      options: q.options || null,
+      correct_answer: q.answer,
+      user_answer: userAnswer,
+      points: q.points,
+      explanation: q.explanation || '',
+      kc_id: q.kc_id || '',
+      images: (__epaImages[qid] || []).slice()
+    });
+  }
+  return out;
+}
+
+// ─── Save answers for AI grading ─────────────────────────────────────
+
+function saveForGrading() {
+  var answers = collectAnswers();
+  var chapterTitle = (document.title || '章节').replace(/\s+/g, '_');
+  var nowStr = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  var filename = chapterTitle + '_answers_' + nowStr + '.json';
+
+  var data = JSON.stringify({
+    chapter: document.title || '',
+    saved_at: new Date().toISOString(),
+    questions: answers
+  }, null, 2);
+
+  var blob = new Blob([data], { type: 'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  var cmdEl = document.getElementById('epa-grade-cmd-text');
+  if (cmdEl) cmdEl.textContent = '/exampass grade "<下载目录>/' + filename + '"';
+  var modal = document.getElementById('epa-grade-modal');
+  if (modal) modal.classList.add('open');
+}
+
+function __epaCloseGradeModal() {
+  var modal = document.getElementById('epa-grade-modal');
+  if (modal) modal.classList.remove('open');
+}
+
+function __epaCopyGradeCmd() {
+  var cmdEl = document.getElementById('epa-grade-cmd-text');
+  if (!cmdEl) return;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(cmdEl.textContent);
+  } else {
+    var range = document.createRange();
+    range.selectNodeContents(cmdEl);
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    document.execCommand('copy');
+    sel.removeAllRanges();
+  }
+  var btn = document.getElementById('epa-grade-copy-btn');
+  if (btn) { btn.textContent = '已复制'; setTimeout(function(){ btn.textContent = '复制命令'; }, 2000); }
 }
 
 function gradeFill(q, qid, card, badge, correctEl) {
